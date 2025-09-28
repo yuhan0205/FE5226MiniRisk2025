@@ -1,0 +1,308 @@
+\documentclass[10pt]{article}
+\usepackage{amsfonts}
+\usepackage{amsmath, amssymb}
+\usepackage[margin=0.6in]{geometry}
+
+\title{Foundations of a Risk Management System in C++ \\
+\large FE5226 Project
+}
+\author{Fabio Cannizzo}
+\date{version: 2025-09-01}
+ 
+
+\begin{document}
+\maketitle
+
+\abstract{
+This source code demonstrates the foundation of a risk management system. It can load trades from a database, compute the price of trades, discover dynamically market dependencies and construct necessary market objects, retrieve trade life-cycling information, compute price sensitivities with respect to risk factors, analyse the impact of hypothetical market scenarios.
+
+A real risk management system entails of many more features, e.g. sophisticate market objects and pricing models; efficient algorithms to avoid unnecessary re-computations when calculating Greeks; support for a large number of trade types; extensive set of tools to orchestrate re-computations and post-process their results (e.g. P\&L explain, VaR, PFE, XVA); tools to manage life-cycle of trades; connections to external databases and systems of various nature; client-server pricing APIs; connections to cash flow management systems and payment systems; support for parallel computations (thread safety).
+
+All these features can be implemented as modifications or extensions of the code provided. You are supposed to carry out various improvements and extensions as specified below.
+}
+
+\section{License}
+The license for the source code is in the main directory. You must read the license file.
+\section{Source code organization and build instructions}
+All source code files are in the subdirectory \textit{src}. Source files with names matching the patterns \textit{Demo*.cpp} or \textit{Test*.cpp} contain the \textit{main} routine for separate programs. The other cpp files are library components used by the various programs.
+
+A number of txt files are given. \textit{portfolio\_0.txt} and \textit{risk\_factors\_0.txt} work with the program in its current state. \textit{portfolio\_$i$.txt} and \textit{risk\_factors\_$i$.txt} work after completion of the first $i$ tasks. If a file with appropriate enumeration is missing, you can use the last one available (e.g. in task 11, you can use \textit{risk\_factors\_5.txt})
+
+The target platform is x86\_64 (64 bits). The C++ language standard used is: C++20.
+\subsection{Compilation on Visual Studio}
+You need to: create a new solution. In the solution add one console project for each cpp file with name \textit{Demo*.cpp} or \textit{Test*.cpp}; in each project also add all other cpp files (except the ones with name \textit{Demo*.cpp} or \textit{Test*.cpp}), so that in each project you have one and only one cpp file containing the function \textit{main}. You can work in "Debug" mode, which allows you to execute code step by step and use breakpoints, but when you are finished with development and want to test the performance of your final program you should use "Release" mode.
+In must configure the solution as follows:
+\begin{itemize}
+    \item Select platform "x64" (the default is "x86", i.e. 32 bits).
+    \item Go to the property page for the project (right click on the project from solution explorer), select "all platform" and "all configurations", then navigate the configuration tree to C++/AllOptions and set:
+    \begin{itemize}
+        \item C++ language standard: C++20
+        \item Disable language extensions: yes
+        \item Treat warnings as errors: yes
+        \item Warning level: W3
+    \end{itemize}
+\end{itemize}
+\subsection{Compilation with g++}
+\textit{g++} is a Linux compiler. On a Linux machine
+\begin{itemize}
+    \item If you do not already have them, install \textit{g++} and \textit{make} packages (how to install depends on the specific Linux distribution you are using).
+    \item Open a shell
+    \item Change directory to the \textit{src} folder, which contains a \textit{Makefile}.
+    \item Type \textit{make}, which uses the Makefile provided to drive the compilation.
+    \item If all is well, you should see all your files compiling without errors and an executable file created. 
+    \item Test the executable file from the command line.
+\end{itemize}
+You can also use \textit{g++} on a Windows machine by installing a Linux emulation environment. An available options is \textit{Cygwin}.
+To install \text{Cygwin}:
+\begin{itemize}
+    \item Download setup-x86\_64.exe from https://www.cygwin.com/install.html
+    \item Launch the installer.
+    \item Select desired packages (at least you should select \textit{gcc-g++}, and \textit{make}).
+    \item Launch the \textit{Cygwin} shell
+    \item Change folder to the \textit{src} folder. Note your disk \textit{C:} appears in \textit{Cygwin} as the folder \textit{/cygdrive/c}, so if your project is at \textit{C:\textbackslash myproject\textbackslash src}, in Cygwin you have to type \textit{cd /cygdrive/c/myproject/src}
+    \item Continue as per Linux instructions above
+\end{itemize}
+\subsection{Running the program}
+To run the program type from the command line:\\
+\textit{DemoRisk -p portfolio.txt -f risk\_factors.txt}
+
+To run the program directly from inside Visual Studio, you can specify the working directory where your txt files are located and the command line arguments (\textit{portfolio.txt risk\_factors.txt}) in the \textit{Debugging} section of the project configuration.
+
+\section{What to do}
+You have to complete sequentially all tasks mentioned in section \ref{sec:task}. After completing each task you should test correctness of your work by succesfully running the command \\
+\textit{DemoRisk portfolio\_i.txt risk\_factors\_i.txt}\\
+and comparing the output of your program with the output given in \textit{output\_i.txt}.
+To compare files you can use the free Windows program \textit{WinMerge}, or \textit{sdiff} on Linux. Your goal is to generate an output file \textbf{identical} to the one provided.
+
+\section{Marking is based on the following criteria}
+Marking is going to be based on the following criteria.
+\subsection{Correctly follow submission instructions}
+Following carefully the submission instructions \ref{sec:submission}. Failure to do so will be penalized with negative marks. While this seems trivial, every year some student group fails to do this, so please be very careful. 
+\subsection{Coding style}
+Follow good practice
+\begin{itemize}
+\item correct use of indentation (configure your editor to convert tab to spaces and to use tabs of 4 characters)
+\item if called with no arguments or with incorrect arguments, the program must produce an explanation of the correct command line syntax required to invoke the program
+\item proper choices of variable and function names
+\item appropriate use of source code comments
+\item avoid code duplication (do not copy and paste, introduce new functions as appropriate)
+\item code robustness (e.g. assert function arguments are valid)
+\item code conciseness (do not do in 10 lines what you could do in one line)
+\item do not reinvent the wheel (use library functions when available)
+\item minimal changes to original files: only add or modify the lines of code strictly necessary, do not insert unnecessary white-spaces (you can use \textit{WinMerge} to view the difference between your files and the original ones, or use \textit{git}, which is excellent for checking differences). I will use WinMerge to check differences.
+\end{itemize}
+
+\subsection{Compilation}
+\label{sec:gcc}
+Before submitting, verify that your program compiles with no warnings and runs with both Visual Studio and g++.
+
+\subsection{Correctness}
+\label{sec:correct}
+If your code compiles I will run your \textit{DemoRisk} with the given trade portfolio and market data and compare your output with mine using WinMerge. If there is a no difference, you get full marks.
+
+Note that if your code does not compile, or if it fails to load or crashes when using the latest sample files, you get zero marks. The command line help message should also be correct (include all accepted command line arguments).
+
+I also create an extended set of test test files, with more currencies and more special cases than what covered by the sample test files. This may include expired trades (i.e. trades where the last payment date is before the pricing date, which should generate an error), missing market data (e.g. a missing FX spot), missing fixings and other corner cases.  I will compare your output with mine using WinMerge.
+
+\subsection{Performance}
+The intent of performance checking is to identify common mistakes that can make your program slow. This is typically due to poor choice of data structures or performing redundant calculations. In particular, for market objects, pre-compute as many intermediate results as possible when you construct the objects, and reuse the pre-computed data when pricers query the market data objects.
+I am not looking for an highly optimized program , but I penalize programming mistakes which make the program very slow. 
+To test performance, I create a very large test portfolio (millions of trades) and measure processing time using my own implementation as a benchmark. If your DemoRisk runs in a time comparable to my own implementation, you get full marks. A possible way to create a large portfolio is to simply copy the given test set portfolio many times in a bigger file. Note that if your code does not compile or if errors are found in section \ref{sec:correct}, you get zero marks. 
+
+\section{Submission instructions}
+\label{sec:submission}
+\begin{itemize}
+    \item After completing all tasks you need to zip and submit all files with extension *.h and *.cpp.
+    \item Do not submit any other file (e.g. txt files, visual studio project files, object files, executable files, output files).
+    \item Files should be zipped without directory path.  I.e. your zip file should contain file1.cpp, file2.cpp, ..., not dirname\textbackslash file1.cpp, dirname\textbackslash file2.cpp, ....
+    \item You need to include in the zip file also a file with name \textit{group.txt} (in lowercase letters)  containing team members. The file must contains only the student IDs on separate lines (note there should be a newline also after the last ID), it should not contain students names or headers. The student ID should be in uppercase. Example:
+    \begin{verbatim}
+    A02111111A
+    A02111141E
+    A03116141B
+    \end{verbatim}
+    \item Submit only a zip file, other formats are not allowed (e.g. arj, 7z)
+    \item Submit only only once per group. Only one member of the group must submit, not all members.
+\end{itemize}
+  
+\section{Tasks}
+\label{sec:task}
+
+\subsection{Improve the \textit{Date} class}
+The most common operations performed with the \textit{Date} class when pricing are comparison (e.g. $<$, ==, $>$) and computation of distance between two dates. The current internal representation of the date class is not optimal for these operations.
+
+Refactor the \textit{Date} class by modifying the current internal representation, which entails of the 4 data members \textit{day}, \textit{month}, \textit{year} and \textit{is\_leap}, to a single data member of type \textit{unsigned} with name \textit{serial}, representing the number of days elapsed since 1-Jan-1900. This allows to speed up the operations mentioned above and reduce memory footprint.
+
+Change the serialization format to be based directly on \textit{serial}, so that no extra work is necessary when saving or loading from a file.
+
+When the \textit{Date} class is constructed from the arguments \textit{day}, \textit{month} and \textit{year}, you need to generate the equivalent serial \textit{number}. When converting to a string in calendar format for display to the screen, you need to convert \textit{serial} on-the-fly into day, month and year.
+
+
+\subsection{Write a test for the \textit{Date} class}
+Complete the program in \textit{TestDate.cpp}, so that it tests the correctness of the \textit{Date} class. It should perform the following tests:
+\begin{enumerate}
+\item Construction of an invalid date should generate an error: generate intentionally 1000 random invalid dates (e.g. 31-Apr-2010) and verify that the \textit{Date} class constructor throws an error (use \textit{try...catch}).
+\item Verify that converting a date in calendar format (day, month, year) to serial format and then converting back to calendar format yields the original date. Repeat for all dates in the valid range (1-Jan-1900, 31-Dec-2199).
+\item Verify that the serial number generated for 2 contiguous dates are contiguous. For instance 31-Jan-2012 and 1-Feb-2012 are contiguous dates, hence the serial numbers they generate should only differ by 1. Repeat for all pairs of contiguous dates in the valid range (1-Jan-1900, 31-Dec-2199).
+\end{enumerate}
+At the begin of the test, randomize the random number generator. If the test fails, the program should throw an exception, if it succeeds it should just print the message "SUCCESS".
+
+Print out the random seed you used for the random number generator, so that, if the test fails, a programmer can re-use the same seed and reproduce the error, which is essential to be able to debug it.
+
+\subsection{Improve the \textit{CurveDiscount} class}
+The current \textit{CurveDiscount} curve assumes that the interest rate curve is constant.
+
+Modify it so that it takes a set of rates related to different tenors and modify it so that when querying for a discount factor, the value returned is correctly interpolated.
+
+For example, given the data points {IR.1W.USD, IR.2W.USD, IR.1M.USD, IR.2M.USD, IR.3M.USD, IR.6M.USD, IR.9M.USD, IR.1Y.USD, IR.18M.USD, IR.2Y.USD, ...}, you need to resolve each of them to an actual date with respect to the anchor date, construct a stepwise constant interpolation scheme, modify the function which returns discount factor. For sake of clarity, D, W, M and Y mean respectively days, weeks, months and years. Although this is not consistent with market conventions, for simplicity assumes that 1M=30 days and 1Y=365 days, and ignore the distinction between weekdays and weekends when computing tenor dates.
+
+Since you do not know in advance which points are available in the market data server, if you want all the available points for the currency EUR, you need to modify the market data server to be able to return the array of risk factors with pattern IR.*.EUR. Use the $<$regex$>$ STL library to search for a string pattern and implement the method \textit{MarketDataServer::matching}, whose header is already defined in \textit{MarketDataServer.h}. Note that "IR.*.EUR" is not the correct regular expression string to be used here, you need to read about regular expressions and figure out what is the most appropriate string to use, i.e. it should match "just" what needed. For instance, "IR.*EUR" would match "IR.1W.EUR", but also "IRwhateverEUR", which is undesirable.
+
+The interpolation scheme requires computation of the local rates. If $r_i$ and $r_{i+1}$ are the absolute rates for tenor $T_i$ and $T_{i+1}$, as returned from the market data server, the local rate $r_{i,i+1}$ is the one that solves the following equation:
+$$e^{-r_iT_i-r_{i,i+1}(T_{i+1}-T_i)}=e^{-r_{i+1}T_{i+1}}$$
+Then the discount factor for any date $t \in [T_i,T_{i+1}]$ is $$df(t)=e^{-r_i T_i-r_{i,i+1}(t-T_i)}$$
+
+In an efficient implementation as much calculation as possible should be done in the constructor, so that the function $df$, which will be invoked millions of times, is as fast as possible. For instance, the values of the products $r_iT_i$ could be precomputed for all $i$ and cached in a data member of the class.\\
+
+In the $df$ function use binary search (see $lower\_bound$) to determine the interval $i$ such that $T_i \leq t < T_{i+1}$.\\
+
+If the function $df$ is called with a date beyond the last tenor or before the anchor date (today), it should generate an error.
+
+\subsubsection{PV01 with tenors}
+\label{sec:pv01}
+The \textit{PV01} risk function needs to be modified into 2 different risk functions: \textit{PV01Parallel} that computes risk with respect to parallel shift of the yield curve (all risk factor move simultaneously); and \textit{PV01Bucketed} that computes risk with respect to individual yield curves (the yield curve for each tenor $T_i$ change, with all the rest remaining constant). In both cases use central differences, with the same bump size as currently defined in \textit{DemoRisk.cpp}. The 2 new functions must have the same arguments and return type as the existing one.
+
+\subsection{Recover from pricing failures}
+The function \textit{IPricer::price} fails and throws an exception when an error occurs. For instance, if the settlement date of a \textit{Payment} is in the past, pricing of the entire portfolio fails. We would like instead that only problematic trades fail to price while all remaining trades price succesfully.
+
+Modify the typedef \textit{portfolio\_values\_t} to \textit{vector$<$pair$<$double,string$>>$}. In the \textit{compute\_prices} function use \textit{try\{\}catch\{\}} to catch exceptions. If there is no error set the double to the price and the string to an empty string. If there is an error set the double to NaN (see header $<limits>$) and the string to the error message embedded in the exception.
+
+When computing thet total for the book (function \textit{portfolio\_total}), you should return a pair containing the total for trades which price succesfully and an array of pairs with the index of the trades which price to fail and the associated error message.\\
+$pair<double,vector<pair<size\_t,string>>>$\\
+To identify trades with errors, check if the value is a NaN, not if the error message string is empty, because a trade could potentially fail and still have an empty error message.
+
+When computing finite differences, if either the up or down bump are NaN, then set the result to NaN and set the error message to the correspnding error message (if both up and down states have error, you can ignore one of the two error messages).
+
+Modify \textit{DemoRisk} to display both the total for the book and the number of trades which fail to price.
+
+Compare the output of your program with the one given.
+
+\subsection{Add a new market object \textit{CurveFXSpot}}
+\label{sec:fxspot}
+The new market object should implement the interface \textit{ICurveFXSpot}.
+
+Note that the risk factors contained in the market data server only include spot currencies in the format CCYUSD, i.e. the prices of CCY in USD. The class must support direct, inverse and cross currency pairs (e.g. EURUSD, USDJPY, EURGBP). It is up to you to make the correct queries to the market data server and construct the \textit{CurveFXSpot} appropriately.\\
+
+You need to modity the \textit{Market} class as appropriate.\\
+
+Note that according with market conventions the spot price observed at time $T$ is the forward price for an exchange of money at $T+2$. Ignore this difference and assume that the spot price observed at time $T$ is defined as the exchange rate for an instantaneous exchange of money at time $T$. Thanks to this simplification we can simply use the spot directly to convert the present value of a trade price from one currency to another. A real risk management system however, should take this difference into account.\\
+
+Modify the \textit{PricerPayment} class to use the new class \textit{CurveFXSpot}.
+
+\subsection{Add pricer configuration}
+Modify \textit{DemoRisk} to read another optional argument form the command line, the base currency (argument name \textit{-b CCY}). If not explicitly passed, this argument takes the value USD. Pass this to the \textit{run} function.
+Modify the function \textit{ITrade::Pricer} adding an argument \textit{configuration} of type \textit{string}. Remember to update the command line help string.
+
+In a real risk management system the configuration argument could be very complex and allow for instance to select a pricing model (e.g. Black Scholes or Heston) or a numerical framework (e.g. PDE or Monte Carlo). In this project the configuration string is simply the base currency in which all risk is to be computed. At the moment, by default everything is computed in USD. After your changes, \textit{pricer("EUR")} should return a pricer that computes the price in EUR.\\
+
+You need to modify all pricers accordingly. It may be convenient adding a base class \textit{Pricer} which all pricers inherit from and take care of this conversion.
+
+\subsection{Add a new market object \textit{CurveFXForward}}
+The new market object should implement the interface \textit{ICurveFXForward}.\\
+
+The forward price observed at time $T_0$ of currency $ccy_1$ expressed in currency $ccy_2$ for delivery at time $T$ can be computed as
+$$F(T_0,T)=\mathbb{E}[S(T)|\mathcal{F}_{T_0}]=S(T_0) \frac{B_1(T_0,T)}{B_2(T_0,T)}$$
+where $T_0$ is the pricing date, $S(T_0)$ is the current spot price of currency $ccy_1$ expressed in currency $ccy_2$, $B_i(T_0,T)$ is the discount factor in currency $ccy_i$ for time $T$ observed at time $T_0$.\\
+
+This class should use the \textit{CurveFXSpot} class to get $S(T_0)$ and the \textit{CurveDiscount} classes to get the discount factors.\\
+
+Modify the \textit{Market} class as appropriate.
+
+\subsection{Add fixing data server}
+To compute the price of some trades we need information in the past as well as in the future. For example, if today is the 15th of November and we want to compute the price of an Asian option that pays the average of the daily closing price in the month of November, some of these closing prices are in the past and need to be accounted for.\\
+
+Past observations are called fixings. Introduce a \textit{FixingDataServer} class, which implements the following methods:\\
+\textit{// return the fixing if available, otherwise trigger an error}\\
+$\quad double\; get(const\; string\&\; name,\; const\; Date\&\; t)\; const;$\\
+\textit{// return the fixing if available, NaN otherwise, and set the flag if found}\\
+$\quad pair<double, bool>\; lookup(const\; string\&\; name,\; const\; Date\&\; t)\; const;$\\
+
+Populate the fixing data server with the data provided in the file \textit{fixings.txt}.\\
+
+Add an extra command line argument (\textit{-x}) to \textit{DemoRisk.cpp} and use it to communicate to the program the name of the data file containing the fixings. Remember to update the command line help string.\\
+
+Create a \textit{FixingDataServer} object in \textit{DemoRisk.cpp} and pass it as an extra argument to the \textit{IPricer::price} function. Only the pricers of trades requiring fixings will do something with it, other pricers will ignore it (note that \textit{TradePayment} does not have any fixing, hence it will not use it).
+In particular: fixings occurring in the past should be obtained from this argument and if not available an exception should be thrown; fixings occurring exactly on the pricing date should be taken from this argument if available, resolved through the Market otherwise; fixings occurring in the future should be resolved through the Market (e.g. forward prices).
+
+Do not change the format of dates to serial and of double to hexadecimal in the data file.
+
+\subsection{Add FX Spot Greek function}
+\label{sec:fxdelta}
+Add another function for Greeks calculation, named \textit{fx\_delta}, which computes the risk of the book with respect to each of the FX spot rates quoted against USD in the market data server. It should use central difference with a relative bump of 0.1\%.
+
+It should have the same return value and argument types as the PV01 functions.
+
+Add calculation of FXDelta at the end of \textit{DemoRisk.cpp} and display the cumulative book value for each fx spot rate.
+
+\subsection{Add new trade type \textit{TradeFXForward}}
+Given two dates $T_1$ and $T_2$, at time $T_2$ it pays the following amount of $ccy_2$
+$$
+payoff=N[S(T_1)-K]
+$$
+where $S(T_1)$ is the spot price of currency $ccy_1$ expressed in currency $ccy_2$  observed at the fixing date $T_1$, $K$ is a predefined strike price, $N$ is the notional amount and $T_2$ is the settlement date (it must be $T_1<T_2$ for the trade to be valid).\\
+
+Assign to the trade ID=3 (arbitrarily chosen) and the following serialized representation:\\
+ID;NOTIONAL;CCY1;CCY2;STRIKE;FIXINGDATE;SETTLEDATE;
+
+\noindent Example:\\
+3;EUR;USD;notional in hex;strike in hex;date in serial;date in serial;\\
+
+The currency pair $ccy_1ccy_2$ can be any direct, inverse or cross pair.\\
+
+Implement the corresponding pricer object. The price in $ccy_2$ can be computed as:
+$$
+price=B_2(T_0, T_2)[F(T_0,T_1)-K]
+$$
+where $B_2(T_0,T_2)$ is the discount factor in currency 2 for settlement date $T_2$ and $F(T_0,T_1)$ is the currency forward price for date $T_1$. Do not forget to convert this price into USD (or any other specified base currency).
+
+\subsubsection{Historical fixings}
+Note that when the pricing date $T_0$ is between $T_1$ and $T_2$, you need to know the value of $S_{T_1}$, which is in the past, i.e. you need to know its fixed value. 
+
+Note that there can be various situations with respect to the pricing date $T_0$:
+\begin{itemize}
+	\item $T_0< T_1$: both fixing and settlement are in the future
+	\item $T_0 = T_1$ and fixing for $T_1$ not available: there is still full delta risk and PV01 risk
+	\item $ T_1 \leq T_0 < T_2$ and fixing for $T_1$ available: there is no more delta risk with respect to the underlying, but we still have PV01 risk and there may be delta risk for conversion to base currency
+	\item $T_0 = T_2$: no delta with respect to the underlying or PV01 risk, we assume the payment has not been settled yet, hence we can still have a non-zero price, there may be still delta risk with respect to conversion to base currency.
+	\item $T_0 > T_2$: trade is expired, an error should be generated
+\end{itemize}
+
+\section{Q\&A}
+\subsection{How do I save the output of my program to a file?}
+You can redirect the output of your program to a file adding at the end of the command line:  $>$ \textit{filename.txt}.
+\subsection{How do I measure the execution time of my program?}
+\begin{enumerate}
+    \item Compile your program for x64 platform in Release mode.
+    \item Redirect the console to a file, as explained above (this is because the console is very slow, and your time measurement would not be reflective of the real computation time)
+    \item From the Windows cmd line, run the command \textit{echo \%time\%} before and after calling your command. You might consider creating a batch file (.bat) and run it from the windows shell (\textit{cmd}). In Linux or cygwin, you can use the \textit{date} command.
+\end{enumerate}
+\subsection{How can I know if the performance of my program is reasonable?}
+I will post my implementation as an executable for Win64. You can compare your implementation with mine. I will not post an equivalent binary file for MacOS.
+\subsection{What is the best way to divide the work among group members?}
+You are not supposed to divide the work among group members. I allow to work in groups so that strongest programmers can help weaker ones to improve, not so that you can split the work and work less. For each task repeat the following steps:
+\begin{enumerate}
+\item get together and discuss the task
+\item each group member carry out the task individually
+\item get together and discuss individual solutions
+\item choose the best solution and add to the code
+\item move to the next task (where everybody starts from a common source code)
+\end{enumerate}
+In this way, all Students carry out all tasks.
+\subsection{Do I need to submit my program output?}
+No, only your source code.
+\subsection{Do I need to provide intermediate source code, after each step?}
+No, just the final source code. Intermediate files are provided only to help you check after every step that your work is correct.
+\subsection{After I carry out a new step, I can no longer match the output files for the previous step. Is this expected?}
+This is expected. Intermediate files are provided only to help you check after every step that your work is correct.
+\end{document}
+

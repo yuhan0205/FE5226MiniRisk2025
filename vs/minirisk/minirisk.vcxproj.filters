@@ -1,0 +1,32 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClInclude Include="..\..\src\CurveDiscount.h" />
+    <ClInclude Include="..\..\src\Date.h" />
+    <ClInclude Include="..\..\src\Global.h" />
+    <ClInclude Include="..\..\src\ICurve.h" />
+    <ClInclude Include="..\..\src\IObject.h" />
+    <ClInclude Include="..\..\src\IPricer.h" />
+    <ClInclude Include="..\..\src\ITrade.h" />
+    <ClInclude Include="..\..\src\Macros.h" />
+    <ClInclude Include="..\..\src\Market.h" />
+    <ClInclude Include="..\..\src\MarketDataServer.h" />
+    <ClInclude Include="..\..\src\PortfolioUtils.h" />
+    <ClInclude Include="..\..\src\PricerPayment.h" />
+    <ClInclude Include="..\..\src\Streamer.h" />
+    <ClInclude Include="..\..\src\Trade.h" />
+    <ClInclude Include="..\..\src\TradePayment.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\src\CurveDiscount.cpp" />
+    <ClCompile Include="..\..\src\Date.cpp" />
+    <ClCompile Include="..\..\src\DemoRisk.cpp" />
+    <ClCompile Include="..\..\src\Global.cpp" />
+    <ClCompile Include="..\..\src\Market.cpp" />
+    <ClCompile Include="..\..\src\MarketDataServer.cpp" />
+    <ClCompile Include="..\..\src\PortfolioUtils.cpp" />
+    <ClCompile Include="..\..\src\PricerPayment.cpp" />
+    <ClCompile Include="..\..\src\TradeGuids.cpp" />
+    <ClCompile Include="..\..\src\TradePayment.cpp" />
+  </ItemGroup>
+</Project>
