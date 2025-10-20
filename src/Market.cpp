@@ -1,5 +1,6 @@
 #include "Market.h"
 #include "CurveDiscount.h"
+#include "CurveFXSpot.h"
 
 #include <vector>
 #include <limits>
@@ -22,7 +23,12 @@ const ptr_disc_curve_t Market::get_discount_curve(const string& name)
     return get_curve<ICurveDiscount, CurveDiscount>(name);
 }
 
-double Market::from_mds(const string& objtype, const string& name)
+const ptr_fx_spot_curve_t Market::get_fx_spot_curve(const string& name)
+{
+    return get_curve<ICurveFXSpot, CurveFXSpot>(name);
+}
+
+double Market::from_mds(const string& objtype, const string& name) const
 {
     auto ins = m_risk_factors.emplace(name, std::numeric_limits<double>::quiet_NaN());
     if (ins.second) { // just inserted, need to be populated
@@ -38,7 +44,7 @@ const double Market::get_yield(const string& ccyname)
     return from_mds("yield curve", name);
 };
 
-const double Market::get_fx_spot(const string& name)
+const double Market::get_fx_spot(const string& name) const
 {
     return from_mds("fx spot", mds_spot_name(name));
 }

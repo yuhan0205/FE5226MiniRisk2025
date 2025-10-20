@@ -1,6 +1,7 @@
 #include "PricerPayment.h"
 #include "TradePayment.h"
 #include "CurveDiscount.h"
+#include "CurveFXSpot.h"
 
 namespace minirisk {
 
@@ -18,8 +19,10 @@ double PricerPayment::price(Market& mkt) const
     double df = disc->df(m_dt); // this throws an exception if m_dt<today
 
     // This PV is expressed in m_ccy. It must be converted in USD.
-    if (!m_fx_ccy.empty())
-        df *= mkt.get_fx_spot(m_fx_ccy);
+    if (!m_fx_ccy.empty()) {
+        ptr_fx_spot_curve_t fx_spot = mkt.get_fx_spot_curve(m_fx_ccy);
+        df *= fx_spot->spot();
+    }
 
     return m_amt * df;
 }
