@@ -132,10 +132,19 @@ inline my_ifstream& operator>>(my_ifstream& is, Date& v)
 {
     string tmp;
     is >> tmp;
-    unsigned y = std::atoi(tmp.substr(0, 4).c_str());
-    unsigned m = std::atoi(tmp.substr(4, 2).c_str());
-    unsigned d = std::atoi(tmp.substr(6, 2).c_str());
-    v.init(y, m, d);
+    
+    // Check if it's a serial date (5 digits or less) or a YYYYMMDD format (8 digits)
+    if (tmp.length() <= 5) {
+        // Handle serial date format - use the Date(unsigned serial) constructor
+        unsigned serial = std::atoi(tmp.c_str());
+        v = Date(serial);
+    } else {
+        // Handle YYYYMMDD format
+        unsigned y = std::atoi(tmp.substr(0, 4).c_str());
+        unsigned m = std::atoi(tmp.substr(4, 2).c_str());
+        unsigned d = std::atoi(tmp.substr(6, 2).c_str());
+        v.init(y, m, d);
+    }
     return is;
 }
 

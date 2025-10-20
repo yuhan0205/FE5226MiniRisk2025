@@ -88,7 +88,7 @@ double  CurveDiscount::df(const Date& t) const
     
     if (tau == T_last) {
         double r_last = m_r.back();
-        return std::exp(- r_last * static_cast<double>(T_last));
+        return std::exp(- r_last * static_cast<double>(T_last) / 365.0);
     }
 
     auto it = std::upper_bound(m_T.begin(), m_T.end(), tau);
@@ -100,7 +100,7 @@ double  CurveDiscount::df(const Date& t) const
     double rTi = m_rT_prefix[i];
     double r_local = m_r_local[i];
     double dt = static_cast<double>(tau - Ti);
-    return std::exp(- rTi - r_local * dt);
+    return std::exp(- (rTi + r_local * dt) / 365.0);
 }
 
 } // namespace minirisk

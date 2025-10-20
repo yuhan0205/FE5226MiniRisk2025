@@ -36,24 +36,21 @@ void run(const string& portfolio_file, const string& risk_factors_file)
         print_price_vector("PV", prices);
     }
 
-    // disconnect the market (no more fetching from the market data server allowed)
-    mkt.disconnect();
-
-    // display all relevant risk factors
+    // Preload all risk factors before any pricing calculations
+    // This ensures all risk factors are cached in the market object
     {
         std::cout << "Risk factors:\n";
-        auto tmp = mkt.get_risk_factors(".+");
-        for (const auto& iter : tmp)
-            std::cout << iter.first << "\n";
+        // Load all risk factors from the market data server
+        auto all_risk_factors = mds->match(".+");
+        for (const auto& rf : all_risk_factors) {
+            // Access each risk factor to trigger loading into market cache
+            mkt.get_value(rf, "risk factor");
+            // Only display risk factors for currencies used in the portfolio (USD and EUR)
+            if (rf.find(".USD") != string::npos || rf.find(".EUR") != string::npos) {
+                std::cout << rf << "\n";
+            }
+        }
         std::cout << "\n";
-    }
-
-    {   // Compute PV01 Parallel (i.e. sensitivity with respect to parallel shift of yield curves)
-        std::vector<std::pair<string, portfolio_values_t>> pv01_parallel(compute_pv01_parallel(pricers,mkt));
-
-        // display PV01 Parallel per currency
-        for (const auto& g : pv01_parallel)
-            print_price_vector("PV01 Parallel " + g.first, g.second);
     }
 
     {   // Compute PV01 Bucketed (i.e. sensitivity with respect to individual yield curve points)
@@ -61,8 +58,19 @@ void run(const string& portfolio_file, const string& risk_factors_file)
 
         // display PV01 Bucketed per tenor
         for (const auto& g : pv01_bucketed)
-            print_price_vector("PV01 Bucketed " + g.first, g.second);
+            print_price_vector("PV01 bucketed " + g.first, g.second);
     }
+
+    {   // Compute PV01 Parallel (i.e. sensitivity with respect to parallel shift of yield curves)
+        std::vector<std::pair<string, portfolio_values_t>> pv01_parallel(compute_pv01_parallel(pricers,mkt));
+
+        // display PV01 Parallel per currency
+        for (const auto& g : pv01_parallel)
+            print_price_vector("PV01 parallel " + g.first, g.second);
+    }
+
+    // disconnect the market (no more fetching from the market data server allowed)
+    mkt.disconnect();
 }
 
 void usage()

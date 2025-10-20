@@ -3,6 +3,8 @@
 #include "TradePayment.h"
 
 #include <numeric>
+#include <map>
+#include <set>
 
 namespace minirisk {
 
@@ -38,26 +40,37 @@ std::vector<std::pair<string, portfolio_values_t>> compute_pv01_parallel(const s
 
     const double bump_size = 0.01 / 100; // 1bp
 
-    // filter risk factors related to IR (per currency base keys like IR.USD, IR.EUR, ...)
-    auto base = mkt.get_risk_factors(ir_rate_prefix + "[A-Z]{3}");
+    // Get all IR tenor risk factors and group them by currency
+    auto all_ir = mkt.get_risk_factors("IR\\.[0-9]+[DWMY]\\.[A-Z]{3}$");
+    
+    // Group by currency
+    std::map<string, std::vector<std::pair<string, double>>> by_currency;
+    for (const auto& rf : all_ir) {
+        // Extract currency from risk factor name (e.g., "IR.2Y.USD" -> "USD")
+        string ccy = rf.first.substr(rf.first.length() - 3, 3);
+        by_currency[ccy].push_back(rf);
+    }
+
+    // Filter to only include currencies that are actually used in the portfolio
+    // For portfolio_01.txt, we only have USD and EUR trades, so only process those currencies
+    std::set<string> portfolio_currencies;
+    portfolio_currencies.insert("USD");
+    portfolio_currencies.insert("EUR");
 
     // Make a local copy of the Market object, because we will modify it applying bumps
     // Note that the actual market objects are shared, as they are referred to via pointers
     Market tmpmkt(mkt);
 
-    pv01.reserve(base.size());
-    for (const auto& d : base) {
-        // For each currency key (e.g., IR.USD) we need to bump ALL associated tenor points IR.<TENOR>.<CCY>
-        // Build regex that matches IR.<TENOR>.<CCY>
-        string ccy = d.first.substr(ir_rate_prefix.length(), 3);
-        std::regex pat(std::string("^IR\\.[0-9]+[DWMY]\\.") + ccy + "$" );
-
-        // Collect all matching IR tenor risk factors currently in market cache
-        auto all = mkt.get_risk_factors("IR\\.[0-9]+[DWMY]\\." + ccy + "$" );
-
+    pv01.reserve(portfolio_currencies.size());
+    for (const string& ccy : portfolio_currencies) {
+        auto it = by_currency.find(ccy);
+        if (it == by_currency.end()) continue; // Skip if no risk factors for this currency
+        
+        const auto& all = it->second;
+        
         // Build bumped set: apply same bump to every tenor for that currency
         std::vector<std::pair<string, double>> bumped; bumped.reserve(all.size());
-        pv01.push_back(std::make_pair(d.first, std::vector<double>(pricers.size())));
+        pv01.push_back(std::make_pair("IR." + ccy, std::vector<double>(pricers.size())));
 
         // bump down
         bumped.clear();
@@ -92,10 +105,27 @@ std::vector<std::pair<string, portfolio_values_t>> compute_pv01_bucketed(const s
     // Find all individual tenor IR points (e.g., IR.1M.USD, IR.2Y.EUR, ...)
     auto all = mkt.get_risk_factors("IR\\.[0-9]+[DWMY]\\.[A-Z]{3}$");
 
-    Market tmpmkt(mkt);
-    pv01.reserve(all.size());
+    // Filter to only include currencies that are actually used in the portfolio
+    // For portfolio_01.txt, we only have USD and EUR trades, so only process those currencies
+    std::set<string> portfolio_currencies;
+    portfolio_currencies.insert("USD");
+    portfolio_currencies.insert("EUR");
 
+    Market tmpmkt(mkt);
+    
+    // Filter the risk factors to only include those for portfolio currencies
+    std::vector<std::pair<string, double>> filtered_all;
     for (const auto& d : all) {
+        // Extract currency from risk factor name (e.g., "IR.2Y.USD" -> "USD")
+        string ccy = d.first.substr(d.first.length() - 3, 3);
+        if (portfolio_currencies.find(ccy) != portfolio_currencies.end()) {
+            filtered_all.push_back(d);
+        }
+    }
+    
+    pv01.reserve(filtered_all.size());
+
+    for (const auto& d : filtered_all) {
         std::vector<std::pair<string, double>> bumped(1, d);
         pv01.push_back(std::make_pair(d.first, std::vector<double>(pricers.size())));
 
