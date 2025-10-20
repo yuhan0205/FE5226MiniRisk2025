@@ -1,12 +1,14 @@
 #include <iostream>
 #include <algorithm>
+#include <set>
 
 #include "MarketDataServer.h"
 #include "PortfolioUtils.h"
+#include "TradePayment.h"
 
 using namespace::minirisk;
 
-void run(const string& portfolio_file, const string& risk_factors_file)
+void run(const string& portfolio_file, const string& risk_factors_file, const string& base_ccy)
 {
     // load the portfolio from file
     portfolio_t portfolio = load_portfolio(portfolio_file);
@@ -19,8 +21,8 @@ void run(const string& portfolio_file, const string& risk_factors_file)
     // display portfolio
     print_portfolio(portfolio);
 
-    // get pricers
-    std::vector<ppricer_t> pricers(get_pricers(portfolio));
+    // get pricers configured with base currency
+    std::vector<ppricer_t> pricers(get_pricers(portfolio, base_ccy));
 
     // initialize market data server
     std::shared_ptr<const MarketDataServer> mds(new MarketDataServer(risk_factors_file));
@@ -40,14 +42,43 @@ void run(const string& portfolio_file, const string& risk_factors_file)
     // This ensures all risk factors are cached in the market object
     {
         std::cout << "Risk factors:\n";
+        // Determine currencies involved
+        std::set<string> trade_ccys;
+        for (const auto& t : portfolio) {
+            const TradePayment* tp = dynamic_cast<const TradePayment*>(t.get());
+            if (tp) trade_ccys.insert(tp->ccy());
+        }
+        std::set<string> fx_ccys = trade_ccys;
+        fx_ccys.insert(base_ccy);
+        // If cross conversion is needed for any trade (neither side is USD), include USD
+        bool needs_usd = (base_ccy != "USD");
+        if (needs_usd) {
+            for (const auto& c : trade_ccys) {
+                if (c != "USD" && c != base_ccy) { needs_usd = true; break; }
+                needs_usd = false;
+            }
+        }
+        if (needs_usd) fx_ccys.insert("USD");
+
         // Load all risk factors from the market data server
         auto all_risk_factors = mds->match(".+");
         for (const auto& rf : all_risk_factors) {
             // Access each risk factor to trigger loading into market cache
             mkt.get_value(rf, "risk factor");
-            // Only display risk factors for currencies used in the portfolio (USD and EUR)
-            if (rf.find(".USD") != string::npos || rf.find(".EUR") != string::npos) {
-                std::cout << rf << "\n";
+            // FX spot risk factors for relevant currencies
+            if (rf.find(fx_spot_prefix) == 0) {
+                string ccy = rf.substr(fx_spot_prefix.size());
+                if (fx_ccys.count(ccy))
+                    std::cout << rf << "\n";
+                continue;
+            }
+            // IR tenor risk factors for portfolio currencies
+            if (rf.find(ir_rate_prefix) == 0) {
+                if (rf.size() >= 3) {
+                    string ccy = rf.substr(rf.size() - 3, 3);
+                    if (trade_ccys.count(ccy))
+                        std::cout << rf << "\n";
+                }
             }
         }
         std::cout << "\n";
@@ -78,7 +109,7 @@ void usage()
     std::cerr
         << "Invalid command line arguments\n"
         << "Example:\n"
-        << "DemoRisk -p portfolio.txt -f risk_factors.txt\n";
+        << "DemoRisk -p portfolio.txt -f risk_factors.txt [-b CCY]\n";
     std::exit(-1);
 }
 
@@ -86,7 +117,8 @@ int main(int argc, const char **argv)
 {
     // parse command line arguments
     string portfolio, riskfactors;
-    if (argc % 2 == 0)
+    string base_ccy = "USD";
+    if (argc < 5 || argc % 2 == 0)
         usage();
     for (int i = 1; i < argc; i += 2) {
         string key(argv[i]);
@@ -95,6 +127,8 @@ int main(int argc, const char **argv)
             portfolio = value;
         else if (key == "-f")
             riskfactors = value;
+        else if (key == "-b")
+            base_ccy = value;
         else
             usage();
     }
@@ -102,7 +136,7 @@ int main(int argc, const char **argv)
         usage();
 
     try {
-        run(portfolio, riskfactors);
+        run(portfolio, riskfactors, base_ccy);
         return 0;  // report success to the caller
     }
     catch (const std::exception& e)
@@ -121,3 +155,4 @@ int main(int argc, const char **argv)
 // src/bin/DemoRisk.exe -p data/portfolio_00.txt -f data/risk_factors_0.txt
 // src/bin/DemoRisk.exe -p data/portfolio_01.txt -f data/risk_factors_3.txt
 // src/bin/DemoRisk.exe -p data/portfolio_04.txt -f data/risk_factors_3.txt
+// src/bin/DemoRisk.exe -p data/portfolio_04.txt -f data/risk_factors_3.txt -b GBP

@@ -3,9 +3,9 @@
 
 namespace minirisk {
 
-ppricer_t TradePayment::pricer() const
+ppricer_t TradePayment::pricer(const std::string& configuration) const
 {
-    return ppricer_t(new PricerPayment(*this));
+    return ppricer_t(new PricerPayment(*this, configuration));
 }
 
 } // namespace minirisk

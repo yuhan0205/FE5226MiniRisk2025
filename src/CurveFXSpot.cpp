@@ -12,22 +12,31 @@ CurveFXSpot::CurveFXSpot(const Market* mkt, const Date& today, const string& nam
     , m_name(name)
 {
     // Parse the name to extract currency pair
-    // Expected format: "FX.SPOT.CCY1.CCY2" or "FX.SPOT.CCY1" (for CCY1USD)
-    size_t pos = name.find_last_of('.');
-    if (pos != string::npos) {
-        string suffix = name.substr(pos + 1);
-        if (suffix == "USD") {
-            // Format: FX.SPOT.CCY1.USD -> CCY1USD
-            size_t prev_pos = name.find_last_of('.', pos - 1);
-            if (prev_pos != string::npos) {
-                m_ccy1 = name.substr(prev_pos + 1, pos - prev_pos - 1);
-                m_ccy2 = "USD";
-            }
+    // Supported formats:
+    //  - "FX.SPOT.CCY1.CCY2" (general pair)
+    //  - "FX.SPOT.CCY1" (interpreted as CCY1/USD)
+    size_t first_dot = name.find('.');
+    size_t second_dot = (first_dot == string::npos) ? string::npos : name.find('.', first_dot + 1);
+    size_t third_dot = (second_dot == string::npos) ? string::npos : name.find('.', second_dot + 1);
+    if (third_dot != string::npos) {
+        // General pair FX.SPOT.CCY1.CCY2
+        size_t fourth_dot = name.find('.', third_dot + 1);
+        // Expect no fourth dot; tokens: FX, SPOT, CCY1, CCY2
+        m_ccy1 = name.substr(third_dot + 1, (fourth_dot == string::npos ? name.size() : fourth_dot) - (third_dot + 1));
+        // Extract CCY2 after the next dot if present, otherwise already captured
+        if (fourth_dot != string::npos) {
+            m_ccy2 = name.substr(fourth_dot + 1);
         } else {
-            // Format: FX.SPOT.CCY1 -> CCY1USD
-            m_ccy1 = suffix;
-            m_ccy2 = "USD";
+            // No extra dot, m_ccy1 actually holds CCY1, need to find CCY2 after the third dot
+            size_t last_dot = name.find_last_of('.');
+            m_ccy2 = name.substr(last_dot + 1);
+            // Fix m_ccy1 to be token between second and third dots
+            m_ccy1 = name.substr(second_dot + 1, third_dot - second_dot - 1);
         }
+    } else if (second_dot != string::npos) {
+        // Short form FX.SPOT.CCY1 (interpreted as CCY1/USD)
+        m_ccy1 = name.substr(second_dot + 1);
+        m_ccy2 = "USD";
     }
     
     MYASSERT(!m_ccy1.empty() && !m_ccy2.empty(), 
@@ -53,7 +62,7 @@ double CurveFXSpot::spot() const
         return 1.0 / ccy2_usd;
     }
     
-    // Cross currency pair: CCY1CCY2
+    // Cross currency pair: CCY1/CCY2
     // We need to convert CCY1 -> USD -> CCY2
     double ccy1_usd = m_mkt->get_fx_spot(fx_spot_name(m_ccy1, "USD"));
     double ccy2_usd = m_mkt->get_fx_spot(fx_spot_name(m_ccy2, "USD"));

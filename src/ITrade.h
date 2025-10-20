@@ -30,8 +30,8 @@ struct ITrade : IObject
     // print trade attributes
     virtual void print(std::ostream& os) const = 0;
 
-    // Get pricer
-    virtual ppricer_t pricer() const = 0;
+    // Get pricer with configuration (e.g. base currency)
+    virtual ppricer_t pricer(const std::string& configuration) const = 0;
 };
 
 typedef std::shared_ptr<ITrade> ptrade_t;
