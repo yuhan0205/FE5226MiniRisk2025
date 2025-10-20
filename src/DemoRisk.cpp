@@ -4,11 +4,12 @@
 
 #include "MarketDataServer.h"
 #include "PortfolioUtils.h"
+#include "FixingDataServer.h"
 #include "TradePayment.h"
 
 using namespace::minirisk;
 
-void run(const string& portfolio_file, const string& risk_factors_file, const string& base_ccy)
+void run(const string& portfolio_file, const string& risk_factors_file, const string& base_ccy, const string& fixings_file)
 {
     // load the portfolio from file
     portfolio_t portfolio = load_portfolio(portfolio_file);
@@ -27,6 +28,12 @@ void run(const string& portfolio_file, const string& risk_factors_file, const st
     // initialize market data server
     std::shared_ptr<const MarketDataServer> mds(new MarketDataServer(risk_factors_file));
 
+    // initialize fixing data server (optional)
+    std::unique_ptr<FixingDataServer> fds;
+    if (!fixings_file.empty()) {
+        fds.reset(new FixingDataServer(fixings_file));
+    }
+
     // Init market object
     Date today(2017,8,5);
     Market mkt(mds, today);
@@ -34,7 +41,7 @@ void run(const string& portfolio_file, const string& risk_factors_file, const st
     // Price all products. Market objects are automatically constructed on demand,
     // fetching data as needed from the market data server.
     {
-        auto prices = compute_prices(pricers, mkt);
+        auto prices = compute_prices(pricers, mkt, fds.get());
         print_price_vector("PV", prices);
     }
 
@@ -85,7 +92,7 @@ void run(const string& portfolio_file, const string& risk_factors_file, const st
     }
 
     {   // Compute PV01 Bucketed (i.e. sensitivity with respect to individual yield curve points)
-        std::vector<std::pair<string, portfolio_values_t>> pv01_bucketed(compute_pv01_bucketed(pricers,mkt));
+        std::vector<std::pair<string, portfolio_values_t>> pv01_bucketed(compute_pv01_bucketed(pricers,mkt,fds.get()));
 
         // display PV01 Bucketed per tenor
         for (const auto& g : pv01_bucketed)
@@ -93,7 +100,7 @@ void run(const string& portfolio_file, const string& risk_factors_file, const st
     }
 
     {   // Compute PV01 Parallel (i.e. sensitivity with respect to parallel shift of yield curves)
-        std::vector<std::pair<string, portfolio_values_t>> pv01_parallel(compute_pv01_parallel(pricers,mkt));
+        std::vector<std::pair<string, portfolio_values_t>> pv01_parallel(compute_pv01_parallel(pricers,mkt,fds.get()));
 
         // display PV01 Parallel per currency
         for (const auto& g : pv01_parallel)
@@ -109,7 +116,7 @@ void usage()
     std::cerr
         << "Invalid command line arguments\n"
         << "Example:\n"
-        << "DemoRisk -p portfolio.txt -f risk_factors.txt [-b CCY]\n";
+        << "DemoRisk -p portfolio.txt -f risk_factors.txt [-b CCY] [-x fixings.txt]\n";
     std::exit(-1);
 }
 
@@ -118,6 +125,7 @@ int main(int argc, const char **argv)
     // parse command line arguments
     string portfolio, riskfactors;
     string base_ccy = "USD";
+    string fixings_file;
     if (argc < 5 || argc % 2 == 0)
         usage();
     for (int i = 1; i < argc; i += 2) {
@@ -129,6 +137,8 @@ int main(int argc, const char **argv)
             riskfactors = value;
         else if (key == "-b")
             base_ccy = value;
+        else if (key == "-x")
+            fixings_file = value;
         else
             usage();
     }
@@ -136,7 +146,7 @@ int main(int argc, const char **argv)
         usage();
 
     try {
-        run(portfolio, riskfactors, base_ccy);
+        run(portfolio, riskfactors, base_ccy, fixings_file);
         return 0;  // report success to the caller
     }
     catch (const std::exception& e)

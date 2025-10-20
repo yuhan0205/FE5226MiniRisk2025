@@ -22,12 +22,12 @@ std::vector<ppricer_t> get_pricers(const portfolio_t& portfolio, const std::stri
     return pricers;
 }
 
-portfolio_values_t compute_prices(const std::vector<ppricer_t>& pricers, Market& mkt)
+portfolio_values_t compute_prices(const std::vector<ppricer_t>& pricers, Market& mkt, const FixingDataServer* fds)
 {
     portfolio_values_t prices(pricers.size());
     for (size_t i = 0; i < pricers.size(); ++i) {
         try {
-            double price = pricers[i]->price(mkt);
+            double price = pricers[i]->price(mkt, fds);
             prices[i] = std::make_pair(price, "");
         } catch (const std::exception& e) {
             prices[i] = std::make_pair(std::numeric_limits<double>::quiet_NaN(), e.what());
@@ -52,7 +52,7 @@ std::pair<double, std::vector<std::pair<size_t, string>>> portfolio_total(const 
     return std::make_pair(total, errors);
 }
 
-std::vector<std::pair<string, portfolio_values_t>> compute_pv01_parallel(const std::vector<ppricer_t>& pricers, const Market& mkt)
+std::vector<std::pair<string, portfolio_values_t>> compute_pv01_parallel(const std::vector<ppricer_t>& pricers, const Market& mkt, const FixingDataServer* fds)
 {
     std::vector<std::pair<string, portfolio_values_t>> pv01;  // PV01 per trade
 
@@ -94,13 +94,13 @@ std::vector<std::pair<string, portfolio_values_t>> compute_pv01_parallel(const s
         bumped.clear();
         for (const auto& rf : all) bumped.emplace_back(rf.first, rf.second - bump_size);
         tmpmkt.set_risk_factors(bumped);
-        auto pv_dn = compute_prices(pricers, tmpmkt);
+        auto pv_dn = compute_prices(pricers, tmpmkt, fds);
 
         // bump up
         bumped.clear();
         for (const auto& rf : all) bumped.emplace_back(rf.first, rf.second + bump_size);
         tmpmkt.set_risk_factors(bumped);
-        auto pv_up = compute_prices(pricers, tmpmkt);
+        auto pv_up = compute_prices(pricers, tmpmkt, fds);
 
         // restore
         tmpmkt.set_risk_factors(all);
@@ -122,7 +122,7 @@ std::vector<std::pair<string, portfolio_values_t>> compute_pv01_parallel(const s
     return pv01;
 }
 
-std::vector<std::pair<string, portfolio_values_t>> compute_pv01_bucketed(const std::vector<ppricer_t>& pricers, const Market& mkt)
+std::vector<std::pair<string, portfolio_values_t>> compute_pv01_bucketed(const std::vector<ppricer_t>& pricers, const Market& mkt, const FixingDataServer* fds)
 {
     std::vector<std::pair<string, portfolio_values_t>> pv01;  // PV01 per trade
 
@@ -158,12 +158,12 @@ std::vector<std::pair<string, portfolio_values_t>> compute_pv01_bucketed(const s
         // bump down and price
         bumped[0].second = d.second - bump_size;
         tmpmkt.set_risk_factors(bumped);
-        auto pv_dn = compute_prices(pricers, tmpmkt);
+        auto pv_dn = compute_prices(pricers, tmpmkt, fds);
 
         // bump up and price
         bumped[0].second = d.second + bump_size;
         tmpmkt.set_risk_factors(bumped);
-        auto pv_up = compute_prices(pricers, tmpmkt);
+        auto pv_up = compute_prices(pricers, tmpmkt, fds);
 
         // restore
         bumped[0].second = d.second;
