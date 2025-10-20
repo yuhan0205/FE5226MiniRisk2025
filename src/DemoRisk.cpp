@@ -120,3 +120,4 @@ int main(int argc, const char **argv)
 // Under src folder: make
 // src/bin/DemoRisk.exe -p data/portfolio_00.txt -f data/risk_factors_0.txt
 // src/bin/DemoRisk.exe -p data/portfolio_01.txt -f data/risk_factors_3.txt
+// src/bin/DemoRisk.exe -p data/portfolio_04.txt -f data/risk_factors_3.txt

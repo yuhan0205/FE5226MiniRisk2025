@@ -81,10 +81,11 @@ CurveDiscount::CurveDiscount(Market *mkt, const Date& today, const string& curve
 
 double  CurveDiscount::df(const Date& t) const
 {
-    MYASSERT((!(t < m_today)), "cannot get discount factor for date in the past: " << t);
+    MYASSERT((!(t < m_today)), "Curve " << m_name << ", DF not available before anchor date " << m_today << ", requested " << t);
     unsigned tau = static_cast<unsigned>(t - m_today);
     unsigned T_last = m_T.back();
-    MYASSERT(tau <= T_last, "cannot get discount factor beyond last tenor");
+    Date last_tenor_date(m_today.serial() + T_last);
+    MYASSERT(tau <= T_last, "Curve " << m_name << ", DF not available beyond last tenor date " << last_tenor_date << ", requested " << t);
     
     if (tau == T_last) {
         double r_last = m_r.back();

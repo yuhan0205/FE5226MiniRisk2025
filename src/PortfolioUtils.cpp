@@ -5,6 +5,7 @@
 #include <numeric>
 #include <map>
 #include <set>
+#include <limits>
 
 namespace minirisk {
 
@@ -24,14 +25,31 @@ std::vector<ppricer_t> get_pricers(const portfolio_t& portfolio)
 portfolio_values_t compute_prices(const std::vector<ppricer_t>& pricers, Market& mkt)
 {
     portfolio_values_t prices(pricers.size());
-    std::transform(pricers.begin(), pricers.end(), prices.begin()
-        , [&mkt](auto &pp) -> double { return pp->price(mkt); });
+    for (size_t i = 0; i < pricers.size(); ++i) {
+        try {
+            double price = pricers[i]->price(mkt);
+            prices[i] = std::make_pair(price, "");
+        } catch (const std::exception& e) {
+            prices[i] = std::make_pair(std::numeric_limits<double>::quiet_NaN(), e.what());
+        }
+    }
     return prices;
 }
 
-double portfolio_total(const portfolio_values_t& values)
+std::pair<double, std::vector<std::pair<size_t, string>>> portfolio_total(const portfolio_values_t& values)
 {
-    return std::accumulate(values.begin(), values.end(), 0.0);
+    double total = 0.0;
+    std::vector<std::pair<size_t, string>> errors;
+    
+    for (size_t i = 0; i < values.size(); ++i) {
+        if (std::isnan(values[i].first)) {
+            errors.push_back(std::make_pair(i, values[i].second));
+        } else {
+            total += values[i].first;
+        }
+    }
+    
+    return std::make_pair(total, errors);
 }
 
 std::vector<std::pair<string, portfolio_values_t>> compute_pv01_parallel(const std::vector<ppricer_t>& pricers, const Market& mkt)
@@ -70,7 +88,7 @@ std::vector<std::pair<string, portfolio_values_t>> compute_pv01_parallel(const s
         
         // Build bumped set: apply same bump to every tenor for that currency
         std::vector<std::pair<string, double>> bumped; bumped.reserve(all.size());
-        pv01.push_back(std::make_pair("IR." + ccy, std::vector<double>(pricers.size())));
+        pv01.push_back(std::make_pair("IR." + ccy, portfolio_values_t(pricers.size())));
 
         // bump down
         bumped.clear();
@@ -89,8 +107,16 @@ std::vector<std::pair<string, portfolio_values_t>> compute_pv01_parallel(const s
 
         // central difference per trade
         double dr = 2.0 * bump_size;
-        std::transform(pv_up.begin(), pv_up.end(), pv_dn.begin(), pv01.back().second.begin()
-            , [dr](double hi, double lo) -> double { return (hi - lo) / dr; });
+        for (size_t i = 0; i < pv_up.size(); ++i) {
+            if (std::isnan(pv_up[i].first) || std::isnan(pv_dn[i].first)) {
+                // If either up or down bump is NaN, set result to NaN
+                string error_msg = std::isnan(pv_up[i].first) ? pv_up[i].second : pv_dn[i].second;
+                pv01.back().second[i] = std::make_pair(std::numeric_limits<double>::quiet_NaN(), error_msg);
+            } else {
+                double diff = (pv_up[i].first - pv_dn[i].first) / dr;
+                pv01.back().second[i] = std::make_pair(diff, "");
+            }
+        }
     }
 
     return pv01;
@@ -127,7 +153,7 @@ std::vector<std::pair<string, portfolio_values_t>> compute_pv01_bucketed(const s
 
     for (const auto& d : filtered_all) {
         std::vector<std::pair<string, double>> bumped(1, d);
-        pv01.push_back(std::make_pair(d.first, std::vector<double>(pricers.size())));
+        pv01.push_back(std::make_pair(d.first, portfolio_values_t(pricers.size())));
 
         // bump down and price
         bumped[0].second = d.second - bump_size;
@@ -145,8 +171,16 @@ std::vector<std::pair<string, portfolio_values_t>> compute_pv01_bucketed(const s
 
         // central difference
         double dr = 2.0 * bump_size;
-        std::transform(pv_up.begin(), pv_up.end(), pv_dn.begin(), pv01.back().second.begin()
-            , [dr](double hi, double lo) -> double { return (hi - lo) / dr; });
+        for (size_t i = 0; i < pv_up.size(); ++i) {
+            if (std::isnan(pv_up[i].first) || std::isnan(pv_dn[i].first)) {
+                // If either up or down bump is NaN, set result to NaN
+                string error_msg = std::isnan(pv_up[i].first) ? pv_up[i].second : pv_dn[i].second;
+                pv01.back().second[i] = std::make_pair(std::numeric_limits<double>::quiet_NaN(), error_msg);
+            } else {
+                double diff = (pv_up[i].first - pv_dn[i].first) / dr;
+                pv01.back().second[i] = std::make_pair(diff, "");
+            }
+        }
     }
 
     return pv01;
@@ -197,15 +231,31 @@ std::vector<ptrade_t> load_portfolio(const string& filename)
 
 void print_price_vector(const string& name, const portfolio_values_t& values)
 {
+    auto total_result = portfolio_total(values);
+    double total = total_result.first;
+    auto errors = total_result.second;
+    
     std::cout
         << "========================\n"
         << name << ":\n"
         << "========================\n"
-        << "Total: " << portfolio_total(values)
-        << "\n========================\n";
+        << "Total:  " << total << "\n";
+    
+    if (!errors.empty()) {
+        std::cout << "Errors: " << errors.size() << "\n";
+    }
+    
+    std::cout << "\n========================\n";
 
-    for (size_t i = 0, n = values.size(); i < n; ++i)
-        std::cout << std::setw(5) << i << ": " << values[i] << "\n";
+    for (size_t i = 0, n = values.size(); i < n; ++i) {
+        std::cout << std::setw(5) << i << ": ";
+        if (std::isnan(values[i].first)) {
+            std::cout << values[i].second;
+        } else {
+            std::cout << values[i].first;
+        }
+        std::cout << "\n";
+    }
 
     std::cout << "========================\n\n";
 }
