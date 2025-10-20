@@ -32,43 +32,88 @@ double portfolio_total(const portfolio_values_t& values)
     return std::accumulate(values.begin(), values.end(), 0.0);
 }
 
-std::vector<std::pair<string, portfolio_values_t>> compute_pv01(const std::vector<ppricer_t>& pricers, const Market& mkt)
+std::vector<std::pair<string, portfolio_values_t>> compute_pv01_parallel(const std::vector<ppricer_t>& pricers, const Market& mkt)
 {
     std::vector<std::pair<string, portfolio_values_t>> pv01;  // PV01 per trade
 
-    const double bump_size = 0.01 / 100;
+    const double bump_size = 0.01 / 100; // 1bp
 
-    // filter risk factors related to IR
+    // filter risk factors related to IR (per currency base keys like IR.USD, IR.EUR, ...)
     auto base = mkt.get_risk_factors(ir_rate_prefix + "[A-Z]{3}");
 
     // Make a local copy of the Market object, because we will modify it applying bumps
     // Note that the actual market objects are shared, as they are referred to via pointers
     Market tmpmkt(mkt);
 
-    // compute prices for perturbated markets and aggregate results
     pv01.reserve(base.size());
     for (const auto& d : base) {
-        std::vector<double> pv_up, pv_dn;
+        // For each currency key (e.g., IR.USD) we need to bump ALL associated tenor points IR.<TENOR>.<CCY>
+        // Build regex that matches IR.<TENOR>.<CCY>
+        string ccy = d.first.substr(ir_rate_prefix.length(), 3);
+        std::regex pat(std::string("^IR\\.[0-9]+[DWMY]\\.") + ccy + "$" );
+
+        // Collect all matching IR tenor risk factors currently in market cache
+        auto all = mkt.get_risk_factors("IR\\.[0-9]+[DWMY]\\." + ccy + "$" );
+
+        // Build bumped set: apply same bump to every tenor for that currency
+        std::vector<std::pair<string, double>> bumped; bumped.reserve(all.size());
+        pv01.push_back(std::make_pair(d.first, std::vector<double>(pricers.size())));
+
+        // bump down
+        bumped.clear();
+        for (const auto& rf : all) bumped.emplace_back(rf.first, rf.second - bump_size);
+        tmpmkt.set_risk_factors(bumped);
+        auto pv_dn = compute_prices(pricers, tmpmkt);
+
+        // bump up
+        bumped.clear();
+        for (const auto& rf : all) bumped.emplace_back(rf.first, rf.second + bump_size);
+        tmpmkt.set_risk_factors(bumped);
+        auto pv_up = compute_prices(pricers, tmpmkt);
+
+        // restore
+        tmpmkt.set_risk_factors(all);
+
+        // central difference per trade
+        double dr = 2.0 * bump_size;
+        std::transform(pv_up.begin(), pv_up.end(), pv_dn.begin(), pv01.back().second.begin()
+            , [dr](double hi, double lo) -> double { return (hi - lo) / dr; });
+    }
+
+    return pv01;
+}
+
+std::vector<std::pair<string, portfolio_values_t>> compute_pv01_bucketed(const std::vector<ppricer_t>& pricers, const Market& mkt)
+{
+    std::vector<std::pair<string, portfolio_values_t>> pv01;  // PV01 per trade
+
+    const double bump_size = 0.01 / 100; // 1bp
+
+    // Find all individual tenor IR points (e.g., IR.1M.USD, IR.2Y.EUR, ...)
+    auto all = mkt.get_risk_factors("IR\\.[0-9]+[DWMY]\\.[A-Z]{3}$");
+
+    Market tmpmkt(mkt);
+    pv01.reserve(all.size());
+
+    for (const auto& d : all) {
         std::vector<std::pair<string, double>> bumped(1, d);
         pv01.push_back(std::make_pair(d.first, std::vector<double>(pricers.size())));
 
         // bump down and price
         bumped[0].second = d.second - bump_size;
         tmpmkt.set_risk_factors(bumped);
-        pv_dn = compute_prices(pricers, tmpmkt);
+        auto pv_dn = compute_prices(pricers, tmpmkt);
 
         // bump up and price
-        bumped[0].second = d.second + bump_size; // bump up
+        bumped[0].second = d.second + bump_size;
         tmpmkt.set_risk_factors(bumped);
-        pv_up = compute_prices(pricers, tmpmkt);
+        auto pv_up = compute_prices(pricers, tmpmkt);
 
-
-        // restore original market state for next iteration
-        // (more efficient than creating a new copy of the market at every iteration)
+        // restore
         bumped[0].second = d.second;
         tmpmkt.set_risk_factors(bumped);
 
-        // compute estimator of the derivative via central finite differences
+        // central difference
         double dr = 2.0 * bump_size;
         std::transform(pv_up.begin(), pv_up.end(), pv_dn.begin(), pv01.back().second.begin()
             , [dr](double hi, double lo) -> double { return (hi - lo) / dr; });

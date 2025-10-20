@@ -19,7 +19,12 @@ struct CurveDiscount : ICurveDiscount
 private:
     Date   m_today;
     string m_name;
-    double m_rate;
+
+    std::vector<unsigned> m_T;
+    std::vector<double>   m_r;
+    std::vector<double>   m_rT_prefix;
+    std::vector<double>   m_r_local;
+    
 };
 
 } // namespace minirisk

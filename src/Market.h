@@ -50,6 +50,19 @@ public:
     // returns risk factors matching a regular expression
     vec_risk_factor_t get_risk_factors(const std::string& expr) const;
 
+    // fetch matching keys directly from market data server (no values)
+    std::vector<std::string> match_keys(const std::string& expr) const
+    {
+        MYASSERT(m_mds, "Cannot match keys because the market data server has been disconnnected");
+        return m_mds->match(expr);
+    }
+
+    // fetch a single risk factor value by exact name (with caching)
+    double get_value(const string& name, const string& objtype)
+    {
+        return from_mds(objtype, name);
+    }
+
     // clear all market curves execpt for the data points
     void clear()
     {

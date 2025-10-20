@@ -48,12 +48,20 @@ void run(const string& portfolio_file, const string& risk_factors_file)
         std::cout << "\n";
     }
 
-    {   // Compute PV01 (i.e. sensitivity with respect to interest rate dV/dr)
-        std::vector<std::pair<string, portfolio_values_t>> pv01(compute_pv01(pricers,mkt));  // PV01 per trade
+    {   // Compute PV01 Parallel (i.e. sensitivity with respect to parallel shift of yield curves)
+        std::vector<std::pair<string, portfolio_values_t>> pv01_parallel(compute_pv01_parallel(pricers,mkt));
 
-        // display PV01 per currency
-        for (const auto& g : pv01)
-            print_price_vector("PV01 " + g.first, g.second);
+        // display PV01 Parallel per currency
+        for (const auto& g : pv01_parallel)
+            print_price_vector("PV01 Parallel " + g.first, g.second);
+    }
+
+    {   // Compute PV01 Bucketed (i.e. sensitivity with respect to individual yield curve points)
+        std::vector<std::pair<string, portfolio_values_t>> pv01_bucketed(compute_pv01_bucketed(pricers,mkt));
+
+        // display PV01 Bucketed per tenor
+        for (const auto& g : pv01_bucketed)
+            print_price_vector("PV01 Bucketed " + g.first, g.second);
     }
 }
 
@@ -100,3 +108,7 @@ int main(int argc, const char **argv)
         return -1; // report an error to the caller
     }
 }
+
+// Under src folder: make
+// src/bin/DemoRisk.exe -p data/portfolio_00.txt -f data/risk_factors_0.txt
+// src/bin/DemoRisk.exe -p data/portfolio_01.txt -f data/risk_factors_3.txt
