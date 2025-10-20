@@ -37,6 +37,9 @@ public:
     // get an object of type ICurveFXSpot
     const ptr_fx_spot_curve_t get_fx_spot_curve(const string& name);
 
+    // get an object of type ICurveFXForward
+    const ptr_fx_fwd_curve_t get_fx_fwd_curve(const string& name);
+
     // yield rate for currency name
     const double get_yield(const string& name);
 
