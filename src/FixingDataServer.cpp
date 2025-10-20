@@ -36,7 +36,7 @@ FixingDataServer::FixingDataServer(const string& filename)
 double FixingDataServer::get(const string& name, const Date& t) const
 {
     auto it = m_fixings.find(std::make_pair(name, t.serial()));
-    MYASSERT(it != m_fixings.end(), "Fixing not found: " << name << " @ " << t.to_string());
+    MYASSERT(it != m_fixings.end(), "Fixing not found: " << name << "," << t.to_string());
     return it->second;
 }
 

@@ -1,6 +1,7 @@
 #include "Global.h"
 #include "PortfolioUtils.h"
 #include "TradePayment.h"
+#include "TradeFXForward.h"
 
 #include <numeric>
 #include <map>
@@ -70,10 +71,13 @@ std::vector<std::pair<string, portfolio_values_t>> compute_pv01_parallel(const s
     }
 
     // Filter to only include currencies that are actually used in the portfolio
-    // For portfolio_01.txt, we only have USD and EUR trades, so only process those currencies
+    // Dynamically determine currencies from the risk factors available
     std::set<string> portfolio_currencies;
-    portfolio_currencies.insert("USD");
-    portfolio_currencies.insert("EUR");
+    for (const auto& rf : all_ir) {
+        // Extract currency from risk factor name (e.g., "IR.2Y.USD" -> "USD")
+        string ccy = rf.first.substr(rf.first.length() - 3, 3);
+        portfolio_currencies.insert(ccy);
+    }
 
     // Make a local copy of the Market object, because we will modify it applying bumps
     // Note that the actual market objects are shared, as they are referred to via pointers
@@ -132,10 +136,13 @@ std::vector<std::pair<string, portfolio_values_t>> compute_pv01_bucketed(const s
     auto all = mkt.get_risk_factors("IR\\.[0-9]+[DWMY]\\.[A-Z]{3}$");
 
     // Filter to only include currencies that are actually used in the portfolio
-    // For portfolio_01.txt, we only have USD and EUR trades, so only process those currencies
+    // Dynamically determine currencies from the risk factors available
     std::set<string> portfolio_currencies;
-    portfolio_currencies.insert("USD");
-    portfolio_currencies.insert("EUR");
+    for (const auto& d : all) {
+        // Extract currency from risk factor name (e.g., "IR.2Y.USD" -> "USD")
+        string ccy = d.first.substr(d.first.length() - 3, 3);
+        portfolio_currencies.insert(ccy);
+    }
 
     Market tmpmkt(mkt);
     
@@ -254,6 +261,8 @@ ptrade_t load_trade(my_ifstream& is)
 
     if (id == TradePayment::m_id)
         p.reset(new TradePayment);
+    else if (id == TradeFXForward::m_id)
+        p.reset(new TradeFXForward);
     else
         THROW("Unknown trade type:" << id);
 
