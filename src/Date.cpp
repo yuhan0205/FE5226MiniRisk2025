@@ -1,64 +1,140 @@
-#include <iomanip>
-
 #include "Date.h"
+#include <iomanip>
+#include <sstream>
+#include <stdexcept>
 
 namespace minirisk {
 
-struct DateInitializer : std::array<unsigned, Date::n_years>
-{
-    DateInitializer()
-    {
-        for (unsigned i = 0, s = 0, y = Date::first_year; i < size(); ++i, ++y) {
-            (*this)[i] = s;
-            s += 365 + (Date::is_leap_year(y) ? 1 : 0);
+struct DateInitializer : std::array<unsigned, Date::N_YEARS> {
+    DateInitializer() {
+        for (unsigned i = 0, cumulative_days = 0, year = Date::FIRST_YEAR; 
+             i < size(); ++i, ++year) {
+            (*this)[i] = cumulative_days;
+            cumulative_days += 365 + (Date::is_leap_year(year) ? 1 : 0);
         }
     }
 };
 
-const std::array<unsigned, 12> Date::days_in_month = { {31,28,31,30,31,30,31,31,30,31,30,31} };
-const std::array<unsigned, 12> Date::days_ytd{ {0,31,59,90,120,151,181,212,243,273,304,334} };
-const std::array<unsigned, Date::n_years> Date::days_epoch(static_cast<const std::array<unsigned, Date::n_years>&>(DateInitializer()));
+const std::array<unsigned, 12> Date::DAYS_IN_MONTH = {
+    {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
+};
 
-/* The function checks if a given year is a leap year.
-    Leap year must be a multiple of 4, but it cannot be a multiple of 100 without also being a multiple of 400.
-*/
-bool Date::is_leap_year(unsigned year)
-{
-    return ((year % 4 != 0) ? false : (year % 100 != 0) ? true : (year % 400 != 0) ? false : true);
+const std::array<unsigned, 12> Date::DAYS_YTD = {
+    {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334}
+};
+
+const std::array<unsigned, Date::N_YEARS> Date::DAYS_EPOCH(
+    static_cast<const std::array<unsigned, Date::N_YEARS>&>(DateInitializer())
+);
+
+
+Date::Date(unsigned year, unsigned month, unsigned day) {
+    init(year, month, day);
 }
 
-// The function pads a zero before the month or day if it has only one digit.
-std::string Date::padding_dates(unsigned month_or_day)
-{
+void Date::init(unsigned year, unsigned month, unsigned day) {
+    check_valid(year, month, day);
+    m_serial = calendar_to_serial(year, month, day);
+}
+
+std::string Date::to_string(bool pretty) const {
+    unsigned year, month, day;
+    serial_to_calendar(year, month, day);
+    
+    if (pretty) {
+        return std::to_string(day) + "-" + 
+               std::to_string(month) + "-" + 
+               std::to_string(year);
+    } else {
+        return std::to_string(year) + 
+               padding_dates(month) + 
+               padding_dates(day);
+    }
+}
+
+void Date::serial_to_calendar(unsigned& year, unsigned& month, unsigned& day) const {
+
+    unsigned year_index = 0;
+    for (unsigned i = 0; i < N_YEARS; ++i) {
+        if (DAYS_EPOCH[i] > m_serial) {
+            year_index = i - 1;
+            break;
+        }
+        year_index = i;
+    }
+    
+    year = FIRST_YEAR + year_index;
+    
+    unsigned remaining_days = m_serial - DAYS_EPOCH[year_index];
+    
+    month = 1;
+    for (unsigned m = 0; m < 12; ++m) {
+        unsigned days_in_month = DAYS_IN_MONTH[m];
+        if (m == 1 && is_leap_year(year)) {
+            days_in_month = 29;
+        }
+        
+        if (remaining_days < days_in_month) {
+            month = m + 1;
+            break;
+        }
+        remaining_days -= days_in_month;
+    }
+    
+    day = remaining_days + 1;
+}
+
+unsigned Date::calendar_to_serial(unsigned year, unsigned month, unsigned day) {
+    return DAYS_EPOCH[year - FIRST_YEAR] + 
+           DAYS_YTD[month - 1] + 
+           ((month > 2 && is_leap_year(year)) ? 1 : 0) + 
+           (day - 1);
+}
+
+bool Date::is_leap_year(unsigned year) {
+    return (year % 4 == 0) && ((year % 100 != 0) || (year % 400 == 0));
+}
+
+void Date::check_valid(unsigned year, unsigned month, unsigned day) {
+
+    if (year < FIRST_YEAR || year >= LAST_YEAR) {
+        throw std::invalid_argument(
+            "Year must be between " + std::to_string(FIRST_YEAR) + 
+            " and " + std::to_string(LAST_YEAR - 1) + 
+            ", got " + std::to_string(year)
+        );
+    }
+    
+    if (month < 1 || month > 12) {
+        throw std::invalid_argument(
+            "Month must be between 1 and 12, got " + std::to_string(month)
+        );
+    }
+    
+    unsigned max_days = DAYS_IN_MONTH[month - 1];
+    if (month == 2 && is_leap_year(year)) {
+        max_days = 29;
+    }
+    
+    if (day < 1 || day > max_days) {
+        throw std::invalid_argument(
+            "Day must be between 1 and " + std::to_string(max_days) + 
+            " for month " + std::to_string(month) + 
+            " in year " + std::to_string(year) + 
+            ", got " + std::to_string(day)
+        );
+    }
+}
+
+
+std::string Date::padding_dates(unsigned value) {
     std::ostringstream os;
-    os << std::setw(2) << std::setfill('0') << month_or_day;
+    os << std::setw(2) << std::setfill('0') << value;
     return os.str();
 }
 
-void Date::check_valid(unsigned y, unsigned m, unsigned d)
-{
-    MYASSERT(y >= first_year, "The year must be no earlier than year " << first_year << ", got " << y);
-    MYASSERT(y < last_year, "The year must be smaller than year " << last_year << ", got " << y);
-    MYASSERT(m >= 1 && m <= 12, "The month must be a integer between 1 and 12, got " << m);
-    unsigned dmax = days_in_month[m - 1] + ((m == 2 && is_leap_year(y)) ? 1 : 0);
-    MYASSERT(d >= 1 && d <= dmax, "The day must be a integer between 1 and " << dmax << ", got " << d);
+long operator-(const Date& d1, const Date& d2) {
+    return static_cast<long>(d1.m_serial) - static_cast<long>(d2.m_serial);
 }
 
-unsigned Date::day_of_year() const
-{
-    return days_ytd[m_m - 1] + ((m_m > 2 && m_is_leap) ? 1 : 0) + (m_d - 1);
 }
-
-
-/*  The function calculates the distance between two Dates.
-    d1 > d2 is allowed, which returns the negative of d2-d1.
-*/
-long operator-(const Date& d1, const Date& d2)
-{
-    unsigned s1 = d1.serial();
-    unsigned s2 = d2.serial();
-    return static_cast<long>(s1) - static_cast<long>(s2);
-}
-
-} // namespace minirisk
-
