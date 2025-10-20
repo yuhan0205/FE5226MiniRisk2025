@@ -107,6 +107,36 @@ void run(const string& portfolio_file, const string& risk_factors_file, const st
             print_price_vector("PV01 parallel " + g.first, g.second);
     }
 
+    {   // Compute FX delta (sensitivity wrt FX spot quoted against USD)
+        std::vector<std::pair<string, portfolio_values_t>> fx_delta(compute_fx_delta(pricers, mkt, fds.get()));
+
+        // Determine relevant FX currencies from portfolio and base currency
+        std::set<string> trade_ccys;
+        for (const auto& t : portfolio) {
+            const TradePayment* tp = dynamic_cast<const TradePayment*>(t.get());
+            if (tp) trade_ccys.insert(tp->ccy());
+        }
+        std::set<string> fx_ccys = trade_ccys;
+        fx_ccys.insert(base_ccy);
+        bool needs_usd = (base_ccy != "USD");
+        if (needs_usd) {
+            for (const auto& c : trade_ccys) {
+                if (c != "USD" && c != base_ccy) { needs_usd = true; break; }
+                needs_usd = false;
+            }
+        }
+        if (needs_usd) fx_ccys.insert("USD");
+
+        // display FX delta only for relevant currencies
+        for (const auto& g : fx_delta) {
+            // g.first is like "FX.SPOT.CCY"
+            const string prefix = fx_spot_prefix; // e.g. "FX.SPOT."
+            string ccy = (g.first.size() > prefix.size()) ? g.first.substr(prefix.size()) : g.first;
+            if (fx_ccys.count(ccy))
+                print_price_vector("FX delta " + g.first, g.second);
+        }
+    }
+
     // disconnect the market (no more fetching from the market data server allowed)
     mkt.disconnect();
 }

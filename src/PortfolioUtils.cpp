@@ -187,6 +187,62 @@ std::vector<std::pair<string, portfolio_values_t>> compute_pv01_bucketed(const s
 }
 
 
+std::vector<std::pair<string, portfolio_values_t>> compute_fx_delta(const std::vector<ppricer_t>& pricers, const Market& mkt, const FixingDataServer* fds)
+{
+    std::vector<std::pair<string, portfolio_values_t>> fx_delta;
+
+    // relative bump of 0.1%
+    const double rel_bump = 0.1 / 100.0;
+
+    // list all FX spot risk factors quoted vs USD (keys are like FX.SPOT.CCY)
+    // We only consider those that are cached/known via get_risk_factors
+    auto all_fx = mkt.get_risk_factors("FX\\.SPOT\\.[A-Z]{3}$");
+
+    // Make a local copy of the Market because we'll apply bumps
+    Market tmpmkt(mkt);
+
+    fx_delta.reserve(all_fx.size());
+    for (const auto& d : all_fx) {
+        const string& name = d.first;      // e.g. FX.SPOT.EUR
+        const double spot0 = d.second;     // current value
+
+        // central relative bump
+        const double bump_size_dn = spot0 * (1.0 - rel_bump);
+        const double bump_size_up = spot0 * (1.0 + rel_bump);
+
+        std::vector<std::pair<string, double>> bumped(1, d);
+        fx_delta.push_back(std::make_pair(name, portfolio_values_t(pricers.size())));
+
+        // bump down and price
+        bumped[0].second = bump_size_dn;
+        tmpmkt.set_risk_factors(bumped);
+        auto pv_dn = compute_prices(pricers, tmpmkt, fds);
+
+        // bump up and price
+        bumped[0].second = bump_size_up;
+        tmpmkt.set_risk_factors(bumped);
+        auto pv_up = compute_prices(pricers, tmpmkt, fds);
+
+        // restore
+        bumped[0].second = spot0;
+        tmpmkt.set_risk_factors(bumped);
+
+        // central difference per trade: divide by 2*spot0*rel_bump to get dPV/dSpot
+        const double denom = (2.0 * spot0 * rel_bump);
+        for (size_t i = 0; i < pv_up.size(); ++i) {
+            if (std::isnan(pv_up[i].first) || std::isnan(pv_dn[i].first)) {
+                string error_msg = std::isnan(pv_up[i].first) ? pv_up[i].second : pv_dn[i].second;
+                fx_delta.back().second[i] = std::make_pair(std::numeric_limits<double>::quiet_NaN(), error_msg);
+            } else {
+                double diff = (pv_up[i].first - pv_dn[i].first) / denom;
+                fx_delta.back().second[i] = std::make_pair(diff, "");
+            }
+        }
+    }
+
+    return fx_delta;
+}
+
 ptrade_t load_trade(my_ifstream& is)
 {
     string name;

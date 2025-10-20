@@ -29,6 +29,10 @@ std::vector<std::pair<string, portfolio_values_t>> compute_pv01_parallel(const s
 // Use central differences, absolute bump of 0.01%
 std::vector<std::pair<string, portfolio_values_t>> compute_pv01_bucketed(const std::vector<ppricer_t>& pricers, const Market& mkt, const FixingDataServer* fds);
 
+// Compute FX Delta: sensitivity to FX spot rates quoted against USD
+// Use central differences, relative bump of 0.1%
+std::vector<std::pair<string, portfolio_values_t>> compute_fx_delta(const std::vector<ppricer_t>& pricers, const Market& mkt, const FixingDataServer* fds);
+
 // save portfolio to file
 void save_portfolio(const string& filename, const std::vector<ptrade_t>& portfolio);
 
