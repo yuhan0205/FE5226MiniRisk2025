@@ -1,2 +1,20 @@
-# Add any directories, files, or patterns you don't want to be tracked by version control
-minirisk
+*.exe
+*.out
+*.app
+*.dll
+*.so
+*.dylib
+*.o
+*.obj
+*.a
+*.lib
+build/
+bin/
+obj/
+Debug/
+Release/
+.vscode/
+.idea/
+.DS_Store
+*.tmp
+*.log
