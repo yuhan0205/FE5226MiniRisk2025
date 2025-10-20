@@ -22,7 +22,7 @@ static unsigned tenor_to_days(unsigned n, char unit)
     }
 }
 
-CurveDiscount::CurveDiscount(Market *mkt, const Date& today, const string& curve_name)
+CurveDiscount::CurveDiscount(const Market *mkt, const Date& today, const string& curve_name)
     : m_today(today)
     , m_name(curve_name)
 {

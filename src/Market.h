@@ -14,7 +14,7 @@ struct Market : IObject
 private:
     // NOTE: this function is not thread safe
     template <typename I, typename T>
-    std::shared_ptr<const I> get_curve(const string& name);
+    std::shared_ptr<const I> get_curve(const string& name) const;
 
     double from_mds(const string& objtype, const string& name) const;
 
@@ -32,13 +32,13 @@ public:
     virtual Date today() const { return m_today; }
 
     // get an object of type ICurveDisocunt
-    const ptr_disc_curve_t get_discount_curve(const string& name);
+    const ptr_disc_curve_t get_discount_curve(const string& name) const;
 
     // get an object of type ICurveFXSpot
-    const ptr_fx_spot_curve_t get_fx_spot_curve(const string& name);
+    const ptr_fx_spot_curve_t get_fx_spot_curve(const string& name) const;
 
     // get an object of type ICurveFXForward
-    const ptr_fx_fwd_curve_t get_fx_fwd_curve(const string& name);
+    const ptr_fx_fwd_curve_t get_fx_fwd_curve(const string& name) const;
 
     // yield rate for currency name
     const double get_yield(const string& name);
@@ -64,7 +64,7 @@ public:
     }
 
     // fetch a single risk factor value by exact name (with caching)
-    double get_value(const string& name, const string& objtype)
+    double get_value(const string& name, const string& objtype) const
     {
         return from_mds(objtype, name);
     }
@@ -83,7 +83,7 @@ private:
     std::shared_ptr<const MarketDataServer> m_mds;
 
     // market curves
-    std::map<string, ptr_curve_t> m_curves;
+    mutable std::map<string, ptr_curve_t> m_curves;
 
     // raw risk factors (mutable to allow caching in const getters)
     mutable std::map<string, double> m_risk_factors;

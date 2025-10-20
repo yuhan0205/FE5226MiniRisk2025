@@ -9,7 +9,7 @@ struct CurveDiscount : ICurveDiscount
 {
     virtual string name() const { return m_name; }
 
-    CurveDiscount(Market *mkt, const Date& today, const string& curve_name);
+    CurveDiscount(const Market *mkt, const Date& today, const string& curve_name);
 
     // compute the discount factor
     double df(const Date& t) const;

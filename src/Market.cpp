@@ -9,7 +9,7 @@
 namespace minirisk {
 
 template <typename I, typename T>
-std::shared_ptr<const I> Market::get_curve(const string& name)
+std::shared_ptr<const I> Market::get_curve(const string& name) const
 {
     ptr_curve_t& curve_ptr = m_curves[name];
     if (!curve_ptr.get())
@@ -19,17 +19,17 @@ std::shared_ptr<const I> Market::get_curve(const string& name)
     return res;
 }
 
-const ptr_disc_curve_t Market::get_discount_curve(const string& name)
+const ptr_disc_curve_t Market::get_discount_curve(const string& name) const
 {
     return get_curve<ICurveDiscount, CurveDiscount>(name);
 }
 
-const ptr_fx_spot_curve_t Market::get_fx_spot_curve(const string& name)
+const ptr_fx_spot_curve_t Market::get_fx_spot_curve(const string& name) const
 {
     return get_curve<ICurveFXSpot, CurveFXSpot>(name);
 }
 
-const ptr_fx_fwd_curve_t Market::get_fx_fwd_curve(const string& name)
+const ptr_fx_fwd_curve_t Market::get_fx_fwd_curve(const string& name) const
 {
     return get_curve<ICurveFXForward, CurveFXForward>(name);
 }
