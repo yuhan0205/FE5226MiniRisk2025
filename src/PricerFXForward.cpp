@@ -25,8 +25,9 @@ double PricerFXForward::price(Market& mkt, const FixingDataServer* fds) const
     Date T1 = m_fixing_date; // fixing date
     Date T2 = m_settle_date; // settlement date
     
-    // Note: We don't check for T0 > T2 here as the expected behavior is to let
-    // the discount curve throw an error instead of throwing a "Trade is expired" error
+    // Check for expired trade: settlement date must be on or after pricing date
+    MYASSERT(!(T0 > T2), "Trade is expired: settlement date " << T2.to_string() 
+            << " is before pricing date " << T0.to_string());
     
     // Get discount curve for ccy2 (settlement currency)
     ptr_disc_curve_t disc_ccy2 = mkt.get_discount_curve(ir_curve_discount_name(m_ccy2));
@@ -81,7 +82,8 @@ double PricerFXForward::price(Market& mkt, const FixingDataServer* fds) const
         }
     }
     else {
-        // This should not happen due to the T0 > T2 check above
+        // T0 > T2 case is already handled by the expired trade check above
+        // This else clause should only catch other unexpected date relationships
         MYASSERT(false, "Unexpected date relationship: T0=" << T0.to_string() 
                 << ", T1=" << T1.to_string() << ", T2=" << T2.to_string());
     }

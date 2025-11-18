@@ -16,8 +16,14 @@ PricerPayment::PricerPayment(const TradePayment& trd, const std::string& base_cc
 
 double PricerPayment::price(Market& mkt, const FixingDataServer* /*fds*/) const
 {
+    Date today = mkt.today();
+    
+    // Check for expired trade: delivery date must be on or after pricing date
+    MYASSERT(!(m_dt < today), "Trade is expired: delivery date " << m_dt.to_string() 
+            << " is before pricing date " << today.to_string());
+    
     ptr_disc_curve_t disc = mkt.get_discount_curve(m_ir_curve);
-    double df = disc->df(m_dt); // this throws an exception if m_dt<today
+    double df = disc->df(m_dt); // this also throws an exception if m_dt<today (defensive check)
 
     // This PV is expressed in trade ccy. Convert into base currency if needed.
     if (!m_fx_pair.empty()) {

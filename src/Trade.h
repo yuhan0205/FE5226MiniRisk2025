@@ -2,6 +2,8 @@
 
 #include "ITrade.h"
 #include "Streamer.h"
+#include "Macros.h"
+#include <cmath>
 
 namespace minirisk {
 
@@ -15,6 +17,7 @@ struct Trade : ITrade
 
     void init(double quantity = 1.0)
     {
+        MYASSERT(std::isfinite(quantity), "Quantity must be a finite number, got: " << quantity);
         m_quantity = quantity;
     }
 

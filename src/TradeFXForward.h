@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Trade.h"
+#include "Macros.h"
+#include <cmath>
 
 namespace minirisk {
 
@@ -16,6 +18,24 @@ struct TradeFXForward : Trade<TradeFXForward>
     void init(const std::string& ccy1, const std::string& ccy2, double notional, double strike, 
               const Date& fixing_date, const Date& settle_date)
     {
+        // Validate currency codes
+        MYASSERT(!ccy1.empty(), "Base currency code cannot be empty");
+        MYASSERT(ccy1.length() == 3, "Base currency code must be 3 characters (ISO 4217 code), got: " << ccy1);
+        MYASSERT(!ccy2.empty(), "Quote currency code cannot be empty");
+        MYASSERT(ccy2.length() == 3, "Quote currency code must be 3 characters (ISO 4217 code), got: " << ccy2);
+        MYASSERT(ccy1 != ccy2, "Base and quote currencies must be different, got: " << ccy1 << "/" << ccy2);
+        
+        // Validate notional
+        MYASSERT(std::isfinite(notional), "Notional must be a finite number, got: " << notional);
+        MYASSERT(notional != 0.0, "Notional cannot be zero");
+        
+        // Validate strike
+        MYASSERT(std::isfinite(strike), "Strike must be a finite number, got: " << strike);
+        MYASSERT(strike > 0.0, "Strike must be positive, got: " << strike);
+        
+        // Validate dates (Date constructor already validates, but ensure fixing_date <= settle_date)
+        MYASSERT(fixing_date <= settle_date, "Fixing date must be less than or equal to settlement date");
+        
         Trade::init(notional);
         m_ccy1 = ccy1;
         m_ccy2 = ccy2;

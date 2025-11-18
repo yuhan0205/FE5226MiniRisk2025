@@ -1,7 +1,9 @@
 #include <iostream>
 #include <algorithm>
 #include <set>
+#include <fstream>
 
+#include "Macros.h"
 #include "MarketDataServer.h"
 #include "PortfolioUtils.h"
 #include "FixingDataServer.h"
@@ -9,8 +11,26 @@
 
 using namespace::minirisk;
 
+// Helper function to check if a file exists
+static bool file_exists(const string& filename)
+{
+    std::ifstream file(filename);
+    return file.good();
+}
+
 void run(const string& portfolio_file, const string& risk_factors_file, const string& base_ccy, const string& fixings_file)
 {
+    // Validate file existence
+    MYASSERT(file_exists(portfolio_file), "Portfolio file does not exist: " << portfolio_file);
+    MYASSERT(file_exists(risk_factors_file), "Risk factors file does not exist: " << risk_factors_file);
+    if (!fixings_file.empty()) {
+        MYASSERT(file_exists(fixings_file), "Fixings file does not exist: " << fixings_file);
+    }
+    
+    // Validate base currency is not empty
+    MYASSERT(!base_ccy.empty(), "Base currency cannot be empty");
+    MYASSERT(base_ccy.length() == 3, "Base currency must be 3 characters (ISO 4217 code), got: " << base_ccy);
+    
     // load the portfolio from file
     portfolio_t portfolio = load_portfolio(portfolio_file);
 
@@ -141,39 +161,91 @@ void run(const string& portfolio_file, const string& risk_factors_file, const st
     mkt.disconnect();
 }
 
-void usage()
+void usage(const char* program_name)
 {
     std::cerr
-        << "Invalid command line arguments\n"
-        << "Example:\n"
-        << "DemoRisk -p portfolio.txt -f risk_factors.txt [-b CCY] [-x fixings.txt]\n";
-    std::exit(-1);
+        << "Usage: " << program_name << " -p <portfolio_file> -f <risk_factors_file> [-b <base_currency>] [-x <fixings_file>]\n"
+        << "\n"
+        << "Required arguments:\n"
+        << "  -p <portfolio_file>        Path to the portfolio file\n"
+        << "  -f <risk_factors_file>      Path to the risk factors file\n"
+        << "\n"
+        << "Optional arguments:\n"
+        << "  -b <base_currency>         Base currency (default: USD)\n"
+        << "  -x <fixings_file>          Path to the fixings file (optional)\n"
+        << "\n"
+        << "Examples:\n"
+        << "  " << program_name << " -p data/portfolio_00.txt -f data/risk_factors_0.txt\n"
+        << "  " << program_name << " -p data/portfolio_04.txt -f data/risk_factors_3.txt -b GBP\n"
+        << "  " << program_name << " -p data/portfolio_04.txt -f data/risk_factors_3.txt -b GBP -x data/fixings.txt\n";
+    std::exit(1);
 }
 
 int main(int argc, const char **argv)
 {
+    // Handle no arguments case
+    if (argc == 1) {
+        usage(argv[0]);
+    }
+    
     // parse command line arguments
     string portfolio, riskfactors;
     string base_ccy = "USD";
     string fixings_file;
-    if (argc < 5 || argc % 2 == 0)
-        usage();
+    
+    // Validate argument count (must be odd: program name + pairs of key-value)
+    if (argc < 5 || argc % 2 == 0) {
+        std::cerr << "Error: Invalid number of arguments.\n\n";
+        usage(argv[0]);
+    }
+    
+    // Track which required arguments we've seen
+    bool has_portfolio = false;
+    bool has_riskfactors = false;
+    
     for (int i = 1; i < argc; i += 2) {
+        // Check if we have enough arguments remaining
+        if (i + 1 >= argc) {
+            std::cerr << "Error: Missing value for argument: " << argv[i] << "\n\n";
+            usage(argv[0]);
+        }
+        
         string key(argv[i]);
         string value(argv[i+1]);
-        if (key == "-p")
+        
+        // Validate that key starts with '-'
+        if (key.empty() || key[0] != '-') {
+            std::cerr << "Error: Invalid argument format: " << key << " (arguments must start with '-')\n\n";
+            usage(argv[0]);
+        }
+        
+        // Validate that value is not empty
+        if (value.empty()) {
+            std::cerr << "Error: Empty value provided for argument: " << key << "\n\n";
+            usage(argv[0]);
+        }
+        
+        if (key == "-p") {
             portfolio = value;
-        else if (key == "-f")
+            has_portfolio = true;
+        } else if (key == "-f") {
             riskfactors = value;
-        else if (key == "-b")
+            has_riskfactors = true;
+        } else if (key == "-b") {
             base_ccy = value;
-        else if (key == "-x")
+        } else if (key == "-x") {
             fixings_file = value;
-        else
-            usage();
+        } else {
+            std::cerr << "Error: Unknown argument: " << key << "\n\n";
+            usage(argv[0]);
+        }
     }
-    if (portfolio == "" || riskfactors == "")
-        usage();
+    
+    // Validate required arguments are present
+    if (!has_portfolio || !has_riskfactors) {
+        std::cerr << "Error: Missing required arguments.\n\n";
+        usage(argv[0]);
+    }
 
     try {
         run(portfolio, riskfactors, base_ccy, fixings_file);
@@ -198,3 +270,5 @@ int main(int argc, const char **argv)
 // src/bin/DemoRisk.exe -p data/portfolio_04.txt -f data/risk_factors_3.txt -b GBP
 // src/bin/DemoRisk.exe -p data/portfolio_04.txt -f data/risk_factors_3.txt -b GBP -x data/fixings.txt
 // src/bin/DemoRisk.exe -p data/portfolio_04.txt -f data/risk_factors_3.txt -x data/fixings.txt
+// src/bin/DemoRisk.exe -p data/portfolio_10.txt -f data/risk_factors_3.txt -x data/fixings.txt
+// src/bin/DemoRisk.exe -p data/portfolio_10.txt -f data/risk_factors_3.txt -b GBP -x data/fixings.txt

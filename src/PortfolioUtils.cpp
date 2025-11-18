@@ -2,6 +2,7 @@
 #include "PortfolioUtils.h"
 #include "TradePayment.h"
 #include "TradeFXForward.h"
+#include "Macros.h"
 
 #include <numeric>
 #include <map>
@@ -12,19 +13,41 @@ namespace minirisk {
 
 void print_portfolio(const portfolio_t& portfolio)
 {
-    std::for_each(portfolio.begin(), portfolio.end(), [](auto& pt){ pt->print(std::cout); });
+    // Portfolio can be empty, which is valid (just prints nothing)
+    std::for_each(portfolio.begin(), portfolio.end(), [](auto& pt){ 
+        MYASSERT(pt.get() != nullptr, "Portfolio contains null trade pointer");
+        pt->print(std::cout); 
+    });
 }
 
 std::vector<ppricer_t> get_pricers(const portfolio_t& portfolio, const std::string& configuration)
 {
+    MYASSERT(!portfolio.empty(), "Portfolio cannot be empty");
+    MYASSERT(!configuration.empty(), "Configuration string cannot be empty");
+    
+    // Validate all portfolio entries are non-null
+    for (size_t i = 0; i < portfolio.size(); ++i) {
+        MYASSERT(portfolio[i].get() != nullptr, "Portfolio entry at index " << i << " is null");
+    }
+    
     std::vector<ppricer_t> pricers(portfolio.size());
     std::transform( portfolio.begin(), portfolio.end(), pricers.begin()
-                  , [&configuration](auto &pt) -> ppricer_t { return pt->pricer(configuration); } );
+                  , [&configuration](auto &pt) -> ppricer_t { 
+                      MYASSERT(pt.get() != nullptr, "Cannot create pricer for null trade");
+                      return pt->pricer(configuration); 
+                  } );
     return pricers;
 }
 
 portfolio_values_t compute_prices(const std::vector<ppricer_t>& pricers, Market& mkt, const FixingDataServer* fds)
 {
+    MYASSERT(!pricers.empty(), "Pricers vector cannot be empty");
+    
+    // Validate all pricers are non-null
+    for (size_t i = 0; i < pricers.size(); ++i) {
+        MYASSERT(pricers[i].get() != nullptr, "Pricer at index " << i << " is null");
+    }
+    
     portfolio_values_t prices(pricers.size());
     for (size_t i = 0; i < pricers.size(); ++i) {
         try {
@@ -55,6 +78,13 @@ std::pair<double, std::vector<std::pair<size_t, string>>> portfolio_total(const 
 
 std::vector<std::pair<string, portfolio_values_t>> compute_pv01_parallel(const std::vector<ppricer_t>& pricers, const Market& mkt, const FixingDataServer* fds)
 {
+    MYASSERT(!pricers.empty(), "Pricers vector cannot be empty");
+    
+    // Validate all pricers are non-null
+    for (size_t i = 0; i < pricers.size(); ++i) {
+        MYASSERT(pricers[i].get() != nullptr, "Pricer at index " << i << " is null");
+    }
+    
     std::vector<std::pair<string, portfolio_values_t>> pv01;  // PV01 per trade
 
     const double bump_size = 0.01 / 100; // 1bp
@@ -128,6 +158,13 @@ std::vector<std::pair<string, portfolio_values_t>> compute_pv01_parallel(const s
 
 std::vector<std::pair<string, portfolio_values_t>> compute_pv01_bucketed(const std::vector<ppricer_t>& pricers, const Market& mkt, const FixingDataServer* fds)
 {
+    MYASSERT(!pricers.empty(), "Pricers vector cannot be empty");
+    
+    // Validate all pricers are non-null
+    for (size_t i = 0; i < pricers.size(); ++i) {
+        MYASSERT(pricers[i].get() != nullptr, "Pricer at index " << i << " is null");
+    }
+    
     std::vector<std::pair<string, portfolio_values_t>> pv01;  // PV01 per trade
 
     const double bump_size = 0.01 / 100; // 1bp
@@ -196,6 +233,13 @@ std::vector<std::pair<string, portfolio_values_t>> compute_pv01_bucketed(const s
 
 std::vector<std::pair<string, portfolio_values_t>> compute_fx_delta(const std::vector<ppricer_t>& pricers, const Market& mkt, const FixingDataServer* fds)
 {
+    MYASSERT(!pricers.empty(), "Pricers vector cannot be empty");
+    
+    // Validate all pricers are non-null
+    for (size_t i = 0; i < pricers.size(); ++i) {
+        MYASSERT(pricers[i].get() != nullptr, "Pricer at index " << i << " is null");
+    }
+    
     std::vector<std::pair<string, portfolio_values_t>> fx_delta;
 
     // relative bump of 0.1%
@@ -273,6 +317,14 @@ ptrade_t load_trade(my_ifstream& is)
 
 void save_portfolio(const string& filename, const std::vector<ptrade_t>& portfolio)
 {
+    MYASSERT(!filename.empty(), "Filename cannot be empty");
+    
+    // Portfolio can be empty, which is valid (just creates an empty file)
+    // But validate all entries are non-null if portfolio is not empty
+    for (size_t i = 0; i < portfolio.size(); ++i) {
+        MYASSERT(portfolio[i].get() != nullptr, "Portfolio entry at index " << i << " is null");
+    }
+    
     // test saving to file
     my_ofstream of(filename);
     for( const auto& pt : portfolio) {
@@ -284,12 +336,19 @@ void save_portfolio(const string& filename, const std::vector<ptrade_t>& portfol
 
 std::vector<ptrade_t> load_portfolio(const string& filename)
 {
+    MYASSERT(!filename.empty(), "Filename cannot be empty");
+    
     std::vector<ptrade_t> portfolio;
 
     // test reloading the portfolio
+    // Note: my_ifstream constructor already validates file can be opened
     my_ifstream is(filename);
-    while (is.read_line())
-        portfolio.push_back(load_trade(is));
+    
+    while (is.read_line()) {
+        ptrade_t trade = load_trade(is);
+        MYASSERT(trade.get() != nullptr, "Failed to load trade from portfolio file: " << filename);
+        portfolio.push_back(trade);
+    }
 
     return portfolio;
 }

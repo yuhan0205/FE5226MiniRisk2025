@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Trade.h"
+#include "Macros.h"
+#include <cmath>
 
 namespace minirisk {
 
@@ -15,6 +17,16 @@ struct TradePayment : Trade<TradePayment>
 
     void init(const std::string& ccy, double quantity, const Date& delivery_date)
     {
+        // Validate currency code
+        MYASSERT(!ccy.empty(), "Currency code cannot be empty");
+        MYASSERT(ccy.length() == 3, "Currency code must be 3 characters (ISO 4217 code), got: " << ccy);
+        
+        // Validate quantity
+        MYASSERT(std::isfinite(quantity), "Quantity must be a finite number, got: " << quantity);
+        
+        // Validate delivery date (Date constructor already validates, but we can add explicit check)
+        // The Date constructor will throw if invalid, so we just need to ensure it's not default-constructed
+        
         Trade::init(quantity);
         m_ccy = ccy;
         m_delivery_date = delivery_date;
